@@ -1,0 +1,22 @@
+{
+  "summary": "Retest of the HIGH bug from iteration 7: the trip-type switch does not swap points. The fix is NOT applied. /app/frontend/src/components/BookingFields.jsx line 37 still reads `[value.trip_type, v].sort().join() === \"go,return\"`, so it only swaps for go<->return, and git shows no change to the file. Reproduced in the UI with a TEST_ student (saved HOME 34.0101,44.1401 and UNI 33.3101,44.3701) in the student new booking dialog. Starting on go: pickup=HOME, dropoff=UNI. go->round keeps the points (OK). round->return does NOT swap (FAIL): pickup is still HOME and dropoff is still UNI. return->round has nothing to swap back. go->return swaps correctly and return->go swaps back. The admin booking dialog (BookingsSection.jsx) uses the same BookingFields component, so it has the same defect. I did not save a booking, because a return booking reached through round would store swapped home/uni places (as reproduced in iteration 7).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BookingFields trip-type onChange (student and admin dialogs)", "issue": "The fix was not applied. Switching round->return or return->round does not swap location/dropoff. Saving with save_places checked swaps the student's saved home and uni.", "selector": "[data-testid=booking-triptype-select]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/ui_seed_places.py"],
+  "action_items": [
+    "In BookingFields.jsx line 37, replace the condition `[value.trip_type, v].sort().join() === \"go,return\"` with `(value.trip_type === \"return\") !== (v === \"return\")`. Leave the swap object itself as it is."
+  ],
+  "critical_code_review_comments": ["Iteration 7 comments still apply: autofill does not reset when the linked student changes, the admin save_places default is checked, and server.py is over 700 lines."],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "0% for the targeted fix (round<->return swap fails; go<->return still works)"},
+  "seed_data_creation": "I created the data with ui_seed_places.py seed: driver 0790000921, students 0770000921 and 0770000922, 1 vehicle, 3 bookings and 2 trips. All of it was deleted by id with `ui_seed_places.py clean` (all returned 200). I did not touch the real accounts.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Export REACT_APP_BACKEND_URL, then run python /app/backend/tests/ui_seed_places.py seed. Log in as student 0770000921 / stu123 and click student-new-booking-button. Switch booking-triptype-select (options booking-triptype-select-option-{go,round,return}) and compare pickup-map-coords and dropoff-map-coords. After a switch to return, pickup should be 33.3101, 44.3701. Run `clean` at the end."
+}

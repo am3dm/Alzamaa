@@ -8,6 +8,7 @@ User choices: built-in DB (MongoDB) instead of Postgres; gender chosen manually 
 FastAPI (/app/backend/server.py) + MongoDB, JWT Bearer (phone+password, bcrypt). React RTL (Tajawal, blue), react-query, Leaflet/OSM map picker, Google Maps/Waze external links.
 
 ## Implemented (2026-11-12)
+- Separate return pickup time for round bookings (used on return-direction trips, sorted); saved student places (home in Balad, university in Baghdad) auto-fill new bookings (student portal, admin dialog via phone lookup, admin account form), optional "save points" checkbox
 - Pickup + arrival (dropoff) points on map for all trip types; round trip reverses points on return leg; driver/admin/student see both with Google Maps/Waze; full route = pickups then dropoffs
 - 7-seat layout matching user's design (driver + seat 1 premium front, 2-4 middle, 5-7 back, "اتجاه السير"), select-then-confirm dispatch bar; student sees own seat on read-only seat map + pickup location map with Google Maps/Waze
 - Default admin account (1234567890/admin123) for initial setup, editable from "إعدادات الحساب" (name, phone, email, password; requires current password); warning banner while default password is in use; seed never overwrites an edited admin

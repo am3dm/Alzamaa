@@ -34,7 +34,7 @@ export const BookingFields = ({ value, onChange, withStudent, showSave }) => {
       {withStudent && <StudentInfo value={value} set={set} />}
       <Field label="نوع الرحلة">
         <SimpleSelect value={value.trip_type} onChange={(v) => set(
-          [value.trip_type, v].sort().join() === "go,return"
+          (value.trip_type === "return") !== (v === "return")
             ? { trip_type: v, location: value.dropoff_location, address: value.dropoff_address || "", dropoff_location: value.location, dropoff_address: value.address || "" }
             : { trip_type: v },
         )} options={toOptions(TRIP_TYPES)} testId="booking-triptype-select" />
