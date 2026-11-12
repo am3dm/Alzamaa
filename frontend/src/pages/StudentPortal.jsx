@@ -52,7 +52,7 @@ const PointCard = ({ b, kind }) => {
       </div>
       {loc ? (
         <>
-          <MapView location={loc} testId={`my-booking-${kind}-map-${b.id}`} />
+          <MapView location={loc} color={pickup ? "#1D4ED8" : "#059669"} testId={`my-booking-${kind}-map-${b.id}`} />
           <NavButtons location={loc} testPrefix={`my-booking-${kind}-${b.id}`} />
         </>
       ) : <div className="text-xs text-muted-foreground rounded-xl border border-dashed p-4">لم يُحدد على الخريطة</div>}

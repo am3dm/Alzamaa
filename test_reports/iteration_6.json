@@ -1,0 +1,31 @@
+{
+  "summary": "Tested map selection of the pickup and arrival (dropoff) points for all trip types, end to end. Backend pytest: 43 of 43 passed. This includes a new file, test_dropoff_legs.py, with 8 tests: dropoff fields persist on create and update, dropoff can be null, an invalid dropoff returns 422, leg_pickup/leg_dropoff on go and return trips, a ROUND booking reversed on the return trip, driver /driver/trips legs, and a student /my/bookings round booking with dropoff. UI checks in Playwright all passed. The admin dialog shows booking-pickup-section and booking-dropoff-section with both address inputs. Labels change correctly by type (go: الالتقاط (بلد)/الوصول (بغداد); return: reversed; round: the long go/return explanation). Measured map centers: on a fresh go dialog the pickup map is centered on Balad (34.0165, 44.145) and the dropoff map on Baghdad (33.3153, 44.366); with return they are reversed. Clicking either map sets its coords. The saved booking's table row shows pickup and dropoff Google Maps and Waze links with the exact coords. The edit dialog keeps the pickup coords, dropoff coords and dropoff address. The dispatch selected-booking info shows pickup and dropoff nav buttons. The 7-seat dispatch still works: seat 2 was assigned and the toast showed. On the Trips tab, the round passenger has pickup=Balad/dropoff=Baghdad on the go trip and pickup=Baghdad/dropoff=Balad on the return trip, including the addresses. trip-full-route lists pickups as waypoints and the dropoff as the destination. The driver portal (mobile 390px) shows the same reversed legs and full-route links. On the student portal, the booking card shows read-only pickup and dropoff maps (tiles load) with nav buttons. A new student booking of type return centers the maps on Baghdad and Balad respectively, and after saving shows both maps. No page errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "BookingFields (admin and student dialogs)", "issues": ["If a user sets points and then switches the trip type (for example from return to go), the chosen points are kept and the maps stay centered on them. The 'go' pickup (labelled بلد) can then hold a Baghdad coordinate. Consider swapping location and dropoff_location when switching between go and return, or showing a hint."]},
+      {"screen": "Student booking card", "issues": ["The read-only dropoff map (MapView) uses the same blue marker as pickup. The picker uses green (#059669) for dropoff, so a green marker here would match."]},
+      {"screen": "Round trip labels", "issues": ["The round-trip labels are long and wrap to 2 lines on mobile. They are acceptable but verbose."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_dropoff_legs.py", "/app/backend/tests/test_tms_api.py", "/app/backend/tests/test_accounts_api.py", "/app/backend/tests/test_admin_settings.py", "/app/backend/tests/ui_seed_dropoff.py", "/app/test_reports/pytest/pytest_dropoff.xml"],
+  "action_items": [
+    "Optional: when trip_type switches between go and return, swap the pickup and dropoff points (or reset them) so the points match the new labels",
+    "Optional: show the dropoff marker in green in the read-only MapView"
+  ],
+  "critical_code_review_comments": [
+    "In TripsSection.routeStops, duplicates are removed across the combined pickup and dropoff list. If one student's dropoff equals another stop's pickup coordinate, that dropoff is dropped from the route. Deduplicate pickups and dropoffs separately.",
+    "The Google Maps dir URL has a limit of about 9 waypoints. A full 7-seat trip with distinct pickups and dropoffs (14 stops) will be truncated by Google. Consider splitting the route or warning the user.",
+    "Passengers are sorted only by pickup_time. On the return trip of a round booking, pickup_time is still the go-time, so the ordering is not meaningful for the return leg.",
+    "server.py is now about 793 lines, which is over the 700-line guideline. Split it into routers."
+  ],
+  "updated_files": ["/app/backend/tests/test_dropoff_legs.py (new)", "/app/backend/tests/ui_seed_dropoff.py (new; seed/clean helper for UI tests)"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin 1234567890 / admin123 (unchanged)",
+  "seed_data_creation": "Temporary TEST_ data: driver 0790000911, student 0770000911, vehicle 'TEST وصول 1', 2 bookings plus 2 created through the UI, and 2 trips on 2030-03-10. All were deleted by id. Pytest fixtures also cleaned their own data. Final DB: 0 bookings, 0 vehicles, 0 trips. The only users are the admin and the real accounts (الزعيم, علي كامل, مريم علي, عدنان مرسال), which were untouched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run pytest with REACT_APP_BACKEND_URL exported and -n 0. For UI tests, run 'python /app/backend/tests/ui_seed_dropoff.py seed', then later 'python ui_seed_dropoff.py clean <extra booking ids>' (the ids are stored in /tmp/ui_seed_dropoff.json). Leg logic: for a round booking on the return trip, leg_pickup=dropoff_location and leg_dropoff=location."
+}
