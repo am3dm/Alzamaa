@@ -4,7 +4,7 @@ export const TOKEN_KEY = "tms_token";
 
 const memory = {};
 export const storage = {
-  get: (k) => { try { return window.localStorage.getItem(k); } catch { return memory[k] ?? null; } },
+  get: (k) => { try { return memory[k] ?? window.localStorage.getItem(k); } catch { return memory[k] ?? null; } },
   set: (k, v) => { memory[k] = v; try { window.localStorage.setItem(k, v); } catch { /* storage blocked */ } },
   remove: (k) => { delete memory[k]; try { window.localStorage.removeItem(k); } catch { /* storage blocked */ } },
 };
