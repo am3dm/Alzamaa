@@ -54,6 +54,15 @@ export const formatTime = (t) => {
 export const BALAD_CENTER = [34.0164, 44.145];
 export const BAGHDAD_CENTER = [33.3152, 44.3661];
 
+export const placesToBooking = (tripType, u) => {
+  const home = { loc: u?.home_location || null, addr: u?.home_address || "" };
+  const uni = { loc: u?.uni_location || null, addr: u?.uni_address || "" };
+  const [p, d] = tripType === "return" ? [uni, home] : [home, uni];
+  return { location: p.loc, address: p.addr, dropoff_location: d.loc, dropoff_address: d.addr };
+};
+
+export const hasPlaces = (u) => !!(u?.home_location || u?.uni_location);
+
 export const LEG_LABELS = {
   go: { pickup: "مكان الالتقاط (بلد)", dropoff: "مكان الوصول (بغداد)", pc: BALAD_CENTER, dc: BAGHDAD_CENTER },
   return: { pickup: "مكان الالتقاط (بغداد)", dropoff: "مكان الوصول (بلد)", pc: BAGHDAD_CENTER, dc: BALAD_CENTER },

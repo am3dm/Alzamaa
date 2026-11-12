@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Plus, Pencil, Trash2, Ban, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -10,18 +10,50 @@ import { BookingFields } from "@/components/BookingFields";
 import { StatusBadge } from "@/components/StatusBadge";
 import { LegLinks } from "@/components/NavButtons";
 import { SimpleSelect } from "@/components/Field";
-import { BOOKING_STATUS, TRIP_TYPES, GENDERS, seatNumber, formatTime, today } from "@/lib/constants";
+import { BOOKING_STATUS, TRIP_TYPES, GENDERS, seatNumber, formatTime, today, placesToBooking, hasPlaces } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
 
-export const EMPTY_BOOKING = { student_name: "", phone: "", gender: "", university: "", date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", dropoff_location: null, dropoff_address: "", notes: "" };
+export const EMPTY_BOOKING = { student_name: "", phone: "", gender: "", university: "", date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", dropoff_location: null, dropoff_address: "", return_pickup_time: "", save_places: true, notes: "" };
+
+const mergeStudent = (cur, s) => {
+  const pts = placesToBooking(cur.trip_type, s);
+  return {
+    ...cur,
+    student_name: cur.student_name || s.name,
+    gender: cur.gender || s.gender,
+    university: cur.university || s.university,
+    ...(cur.location ? {} : { location: pts.location, address: pts.address }),
+    ...(cur.dropoff_location ? {} : { dropoff_location: pts.dropoff_location, dropoff_address: pts.dropoff_address }),
+  };
+};
+
+const useStudentAutofill = (f, setF, enabled) => {
+  const last = useRef("");
+  const [linked, setLinked] = useState(null);
+  useEffect(() => {
+    const phone = f.phone.trim();
+    if (!enabled || phone.length < 7 || phone === last.current) return undefined;
+    const t = setTimeout(async () => {
+      last.current = phone;
+      const { data } = await api.get("/accounts/lookup", { params: { phone } });
+      setLinked(data);
+      if (!data) return;
+      setF((cur) => mergeStudent(cur, data));
+      if (hasPlaces(data)) toast.success("تمت تعبئة عنوان السكن والجامعة المحفوظين للطالب");
+    }, 500);
+    return () => clearTimeout(t);
+  }, [f.phone, enabled, setF]);
+  return linked;
+};
 
 const BookingDialog = ({ initial, open, onClose }) => {
   const [f, setF] = useState(initial);
   const qc = useQueryClient();
+  const linked = useStudentAutofill(f, setF, !initial.id);
   const save = async () => {
     if (!f.gender || !f.university || !f.student_name || !f.phone) return toast.error("أكمل بيانات الطالب");
     try {
-      const body = { ...f };
+      const body = { ...f, return_pickup_time: f.return_pickup_time || null };
       if (initial.id) await api.put(`/bookings/${initial.id}`, body);
       else await api.post("/bookings", body);
       toast.success(initial.id ? "تم تحديث الحجز" : "تم إنشاء الحجز");
@@ -35,7 +67,8 @@ const BookingDialog = ({ initial, open, onClose }) => {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl bg-white max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader><DialogTitle>{initial.id ? "تعديل الحجز" : "إنشاء حجز جديد"}</DialogTitle></DialogHeader>
-        <BookingFields value={f} onChange={setF} withStudent />
+        {linked && <div className="rounded-xl bg-emerald-50 text-emerald-800 text-sm p-3" data-testid="booking-linked-student">الحجز مرتبط بحساب الطالب <b>{linked.name}</b></div>}
+        <BookingFields value={f} onChange={setF} withStudent showSave />
         <Button onClick={save} className="h-11 font-bold" data-testid="booking-submit-button">{initial.id ? "حفظ التعديلات" : "إنشاء الحجز"}</Button>
       </DialogContent>
     </Dialog>
@@ -56,7 +89,7 @@ const BookingRow = ({ b, onEdit }) => {
       </td>
       <td className="p-3 text-sm">
         <div>{TRIP_TYPES[b.trip_type]}</div>
-        <div className="text-xs text-muted-foreground">{b.date} · {formatTime(b.pickup_time)}</div>
+        <div className="text-xs text-muted-foreground">{b.date} · {formatTime(b.pickup_time)}{b.return_pickup_time && ` · إياب ${formatTime(b.return_pickup_time)}`}</div>
         {b.notes && <div className="text-xs text-amber-700 mt-1">{b.notes}</div>}
       </td>
       <td className="p-3 text-sm">
@@ -98,7 +131,7 @@ export const BookingsSection = () => {
             <thead className="text-xs text-muted-foreground border-b">
               <tr><th className="p-3 text-start">الطالب</th><th className="p-3 text-start">الرحلة</th><th className="p-3 text-start">السيارة والمقعد</th><th className="p-3 text-start">الحالة</th><th className="p-3 text-start">التقاط / وصول</th><th className="p-3 text-start">إجراءات</th></tr>
             </thead>
-            <tbody>{data.map((b) => <BookingRow key={b.id} b={b} onEdit={() => setDialog(b)} />)}</tbody>
+            <tbody>{data.map((b) => <BookingRow key={b.id} b={b} onEdit={() => setDialog({ ...b, save_places: false, return_pickup_time: b.return_pickup_time || "" })} />)}</tbody>
           </table>
         </div>
       )}

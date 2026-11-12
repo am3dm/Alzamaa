@@ -51,7 +51,7 @@ export const PassengerList = ({ passengers, large }) => (
           <span className="h-8 w-8 rounded-full bg-primary text-white grid place-items-center font-bold text-sm">{i + 1}</span>
           <div>
             <div className="font-bold">{p.student_name}</div>
-            <div className="text-xs text-muted-foreground">{formatTime(p.pickup_time)} · مقعد {seatNumber(p.seat)} · {p.university}</div>
+            <div className="text-xs text-muted-foreground">{formatTime(p.leg_time || p.pickup_time)} · مقعد {seatNumber(p.seat)} · {p.university}</div>
             {p.leg_pickup_address && <div className="text-xs text-primary">التقاط: {p.leg_pickup_address}</div>}
             {p.leg_dropoff_address && <div className="text-xs text-emerald-700">وصول: {p.leg_dropoff_address}</div>}
             {p.notes && <div className="text-xs text-amber-700">{p.notes}</div>}

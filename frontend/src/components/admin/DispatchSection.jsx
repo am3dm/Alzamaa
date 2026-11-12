@@ -22,7 +22,7 @@ const PendingList = ({ items, selected, onSelect }) => (
           <span className="font-bold">{b.student_name}</span>
           <span className={`text-xs rounded-full px-2 font-bold ${b.gender === "female" ? "bg-pink-100 text-pink-700" : "bg-blue-100 text-blue-700"}`}>{GENDERS[b.gender]}</span>
         </div>
-        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><Clock className="h-3 w-3" /> {b.date} · {formatTime(b.pickup_time)}</div>
+        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><Clock className="h-3 w-3" /> {b.date} · {formatTime(b.pickup_time)}{b.return_pickup_time && ` · إياب ${formatTime(b.return_pickup_time)}`}</div>
         <div className="text-xs text-slate-600">{TRIP_TYPES[b.trip_type]} · {b.university}</div>
       </button>
     ))}

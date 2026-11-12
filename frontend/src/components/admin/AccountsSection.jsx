@@ -11,13 +11,14 @@ import { SectionCard, Empty } from "@/components/admin/SectionCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Field, SimpleSelect } from "@/components/Field";
 import { UniversityPicker } from "@/components/UniversityPicker";
+import { PlacesFields } from "@/components/PlacesFields";
 import { STUDENT_STATUS, GENDERS } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
 
 const ROLE_OPTIONS = [{ value: "student", label: "طالب" }, { value: "driver", label: "سائق" }];
 const STATUS_OPTIONS = Object.entries(STUDENT_STATUS).map(([value, s]) => ({ value, label: s.label }));
 const GENDER_OPTIONS = Object.entries(GENDERS).map(([value, label]) => ({ value, label }));
-const EMPTY = { role: "student", name: "", phone: "", password: "", gender: "", university: "", notes: "", status: "active" };
+const EMPTY = { role: "student", name: "", phone: "", password: "", gender: "", university: "", notes: "", status: "active", home_location: null, home_address: "", uni_location: null, uni_address: "" };
 
 export const useAccounts = (params) =>
   useQuery({ queryKey: ["accounts", params], queryFn: () => api.get("/accounts", { params }).then((r) => r.data) });
@@ -56,6 +57,10 @@ const AccountForm = ({ initial, onDone }) => {
         <>
           <Field label="الجنس"><SimpleSelect value={f.gender} onChange={(v) => set({ gender: v })} options={GENDER_OPTIONS} testId="account-gender-select" /></Field>
           <Field label="الجامعة"><UniversityPicker value={f.university} onChange={(v) => set({ university: v })} /></Field>
+          <div className="sm:col-span-2 space-y-2">
+            <div className="text-sm font-bold text-slate-700">النقاط المحفوظة (تظهر تلقائياً في كل حجز)</div>
+            <PlacesFields value={f} onChange={(v) => setF(v)} />
+          </div>
         </>
       )}
       <Field label="ملاحظات" className="sm:col-span-2"><Textarea value={f.notes || ""} onChange={(e) => set({ notes: e.target.value })} data-testid="account-notes-input" /></Field>

@@ -141,6 +141,8 @@ class BookingIn(BaseModel):
     address: Optional[str] = ""
     dropoff_location: Optional[Location] = None
     dropoff_address: Optional[str] = ""
+    return_pickup_time: Optional[str] = Field(None, pattern=TIME_RE)
+    save_places: bool = False
     notes: Optional[str] = ""
 
 
@@ -152,7 +154,16 @@ class StudentBookingIn(BaseModel):
     address: Optional[str] = ""
     dropoff_location: Optional[Location] = None
     dropoff_address: Optional[str] = ""
+    return_pickup_time: Optional[str] = Field(None, pattern=TIME_RE)
+    save_places: bool = False
     notes: Optional[str] = ""
+
+
+class PlacesIn(BaseModel):
+    home_location: Optional[Location] = None
+    home_address: Optional[str] = ""
+    uni_location: Optional[Location] = None
+    uni_address: Optional[str] = ""
 
 
 class BookingStatusIn(BaseModel):
@@ -198,6 +209,33 @@ class AccountIn(BaseModel):
     university: Optional[str] = ""
     notes: Optional[str] = ""
     status: Literal["active", "pending", "rejected"] = "active"
+    home_location: Optional[Location] = None
+    home_address: Optional[str] = ""
+    uni_location: Optional[Location] = None
+    uni_address: Optional[str] = ""
+
+
+def places_from_booking(data: dict) -> dict:
+    bal = (data.get("dropoff_location"), data.get("dropoff_address")) if data["trip_type"] == "return" else (data.get("location"), data.get("address"))
+    bag = (data.get("location"), data.get("address")) if data["trip_type"] == "return" else (data.get("dropoff_location"), data.get("dropoff_address"))
+    out = {}
+    if bal[0]:
+        out.update({"home_location": bal[0], "home_address": bal[1] or ""})
+    if bag[0]:
+        out.update({"uni_location": bag[0], "uni_address": bag[1] or ""})
+    return out
+
+
+async def prepare_booking(data: dict, student_id: Optional[str]) -> dict:
+    if data["trip_type"] == "round" and not data.get("return_pickup_time"):
+        raise HTTPException(400, "حدد وقت التقاط رحلة الإياب")
+    if data["trip_type"] != "round":
+        data["return_pickup_time"] = None
+    if data.pop("save_places", False) and student_id:
+        places = places_from_booking(data)
+        if places:
+            await db.users.update_one({"_id": ObjectId(student_id)}, {"$set": places})
+    return data
 
 
 # ---------- Auth ----------
@@ -376,7 +414,8 @@ async def create_booking(body: BookingIn, _=Depends(admin_only)):
     data = body.model_dump()
     await ensure_university(body.university)
     student = await db.users.find_one({"phone": body.phone.strip(), "role": "student"})
-    doc = booking_doc(data, "admin", str(student["_id"]) if student else None)
+    sid = str(student["_id"]) if student else None
+    doc = booking_doc(await prepare_booking(data, sid), "admin", sid)
     res = await db.bookings.insert_one(doc)
     doc["_id"] = res.inserted_id
     return ser(doc)
@@ -387,7 +426,7 @@ async def update_booking(bid: str, body: BookingIn, _=Depends(admin_only)):
     b = await db.bookings.find_one({"_id": oid(bid)})
     if not b:
         raise HTTPException(404, "الحجز غير موجود")
-    data = body.model_dump()
+    data = await prepare_booking(body.model_dump(), b.get("student_id"))
     data["directions"] = DIRECTIONS[data["trip_type"]]
     if b.get("vehicle_id") and (data["date"] != b["date"] or data["directions"] != b["directions"]
                                 or data["gender"] != b["gender"]):
@@ -447,10 +486,22 @@ async def my_create_booking(body: StudentBookingIn, user=Depends(role("student")
     data = body.model_dump()
     data.update({"student_name": user["name"], "phone": user["phone"], "gender": user.get("gender", "male"),
                  "university": user.get("university", "")})
-    doc = booking_doc(data, "student", user["id"])
+    doc = booking_doc(await prepare_booking(data, user["id"]), "student", user["id"])
     res = await db.bookings.insert_one(doc)
     doc["_id"] = res.inserted_id
     return ser(doc)
+
+
+@api.put("/my/places")
+async def my_places(body: PlacesIn, user=Depends(role("student"))):
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": body.model_dump()})
+    return ser(await db.users.find_one({"_id": ObjectId(user["id"])}))
+
+
+@api.get("/accounts/lookup")
+async def lookup_student(phone: str, _=Depends(admin_only)):
+    u = await db.users.find_one({"phone": phone.strip(), "role": "student"})
+    return ser(u) if u else None
 
 
 @api.post("/my/bookings/{bid}/cancel")
@@ -492,7 +543,11 @@ def account_fields(body: AccountIn):
     if body.role == "student":
         if not body.gender or not body.university:
             raise HTTPException(400, "حدد جنس الطالب وجامعته")
-        data.update({"gender": body.gender, "university": body.university.strip()})
+        data.update({"gender": body.gender, "university": body.university.strip(),
+                     "home_location": body.home_location.model_dump() if body.home_location else None,
+                     "home_address": body.home_address,
+                     "uni_location": body.uni_location.model_dump() if body.uni_location else None,
+                     "uni_address": body.uni_address})
     if body.password:
         if len(body.password) < 6:
             raise HTTPException(400, "كلمة المرور قصيرة (6 أحرف على الأقل)")
@@ -640,10 +695,12 @@ async def trip_full(t: dict):
     passengers = [ser(b) for b in await db.bookings.find(q).sort("pickup_time", 1).to_list(50)]
     for p in passengers:
         reverse = p["trip_type"] == "round" and t["direction"] == "return"
+        p["leg_time"] = (p.get("return_pickup_time") or p["pickup_time"]) if reverse else p["pickup_time"]
         pick = (p.get("dropoff_location"), p.get("dropoff_address")) if reverse else (p.get("location"), p.get("address"))
         drop = (p.get("location"), p.get("address")) if reverse else (p.get("dropoff_location"), p.get("dropoff_address"))
         p["leg_pickup"], p["leg_pickup_address"] = pick
         p["leg_dropoff"], p["leg_dropoff_address"] = drop
+    passengers.sort(key=lambda p: p["leg_time"])
     t["passengers"] = passengers
     t["occupancy"] = len(passengers)
     return t

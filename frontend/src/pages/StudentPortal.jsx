@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Phone, Armchair, Car, Ban, MapPin } from "lucide-react";
+import { Plus, Phone, Armchair, Car, Ban, MapPin, Home, GraduationCap, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,32 +11,80 @@ import { Empty } from "@/components/admin/SectionCard";
 import { SeatMap, SeatLegend } from "@/components/SeatMap";
 import { MapView } from "@/components/MapView";
 import { NavButtons } from "@/components/NavButtons";
+import { PlacesFields } from "@/components/PlacesFields";
 import { useAuth } from "@/context/AuthContext";
-import { BOOKING_STATUS, TRIP_STATUS, TRIP_TYPES, DIRECTIONS, LEG_LABELS, seatNumber, formatTime, today } from "@/lib/constants";
+import { BOOKING_STATUS, TRIP_STATUS, TRIP_TYPES, DIRECTIONS, LEG_LABELS, seatNumber, formatTime, today, placesToBooking } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
 
-const EMPTY = { date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", dropoff_location: null, dropoff_address: "", notes: "" };
+const EMPTY = { date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", dropoff_location: null, dropoff_address: "", return_pickup_time: "", save_places: true, notes: "" };
 
-const NewBooking = ({ open, onClose }) => {
-  const [f, setF] = useState(EMPTY);
+const useRefreshMe = () => {
+  const { setUser } = useAuth();
+  return () => api.get("/auth/me").then((r) => setUser(r.data));
+};
+
+const NewBooking = ({ onClose }) => {
+  const { user } = useAuth();
+  const refreshMe = useRefreshMe();
+  const [f, setF] = useState({ ...EMPTY, ...placesToBooking("go", user) });
   const qc = useQueryClient();
   const save = async () => {
     try {
-      await api.post("/my/bookings", f);
+      await api.post("/my/bookings", { ...f, return_pickup_time: f.return_pickup_time || null });
       toast.success("تم إرسال طلب الحجز، بانتظار تأكيد الإدارة");
       qc.invalidateQueries();
-      setF(EMPTY);
+      if (f.save_places) refreshMe();
       onClose();
     } catch (err) { toast.error(errMsg(err)); }
   };
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl bg-white max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader><DialogTitle>حجز رحلة جديدة</DialogTitle></DialogHeader>
-        <BookingFields value={f} onChange={setF} />
+        <BookingFields value={f} onChange={setF} showSave />
         <Button onClick={save} className="h-12 font-bold" data-testid="student-booking-submit">إرسال طلب الحجز</Button>
       </DialogContent>
     </Dialog>
+  );
+};
+
+const PlacesDialog = ({ onClose }) => {
+  const { user } = useAuth();
+  const refreshMe = useRefreshMe();
+  const [f, setF] = useState({ home_location: user.home_location || null, home_address: user.home_address || "", uni_location: user.uni_location || null, uni_address: user.uni_address || "" });
+  const save = async () => {
+    try { await api.put("/my/places", f); await refreshMe(); toast.success("تم حفظ النقاط"); onClose(); } catch (err) { toast.error(errMsg(err)); }
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl bg-white max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogHeader><DialogTitle>نقاطي المحفوظة</DialogTitle></DialogHeader>
+        <PlacesFields value={f} onChange={setF} />
+        <Button onClick={save} className="h-12 font-bold" data-testid="places-submit">حفظ</Button>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const PlaceLine = ({ icon: Icon, label, addr, loc, testId }) => (
+  <div className="flex items-start gap-2 text-sm" data-testid={testId}>
+    <Icon className="h-4 w-4 mt-1 text-primary shrink-0" />
+    <div><b>{label}:</b> {loc ? (addr || "محدد على الخريطة") : <span className="text-muted-foreground">غير محدد</span>}</div>
+  </div>
+);
+
+const SavedPlaces = ({ onEdit }) => {
+  const { user } = useAuth();
+  return (
+    <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm space-y-2" data-testid="saved-places-card">
+      <div className="flex items-center justify-between">
+        <h2 className="font-extrabold">نقاطي المحفوظة</h2>
+        <Button variant="outline" size="sm" className="gap-1" onClick={onEdit} data-testid="edit-places-button"><Pencil className="h-4 w-4" /> تعديل</Button>
+      </div>
+      <PlaceLine icon={Home} label="السكن (بلد)" addr={user.home_address} loc={user.home_location} testId="saved-home" />
+      <PlaceLine icon={GraduationCap} label="الجامعة (بغداد)" addr={user.uni_address} loc={user.uni_location} testId="saved-uni" />
+      <p className="text-xs text-muted-foreground">تظهر هذه النقاط تلقائياً في كل حجز جديد.</p>
+    </div>
   );
 };
 
@@ -71,7 +119,7 @@ const BookingCard = ({ b }) => {
       <div className="flex justify-between items-start gap-2">
         <div>
           <div className="font-extrabold text-lg">{TRIP_TYPES[b.trip_type]}</div>
-          <div className="text-sm text-muted-foreground">{b.date} · الالتقاط {formatTime(b.pickup_time)}</div>
+          <div className="text-sm text-muted-foreground">{b.date} · الالتقاط {formatTime(b.pickup_time)}{b.return_pickup_time && ` · الإياب ${formatTime(b.return_pickup_time)}`}</div>
         </div>
         <StatusBadge map={BOOKING_STATUS} status={b.status} testId={`my-booking-status-${b.id}`} />
       </div>
@@ -112,6 +160,7 @@ const BookingCard = ({ b }) => {
 export default function StudentPortal() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [places, setPlaces] = useState(false);
   const { data = [], isLoading } = useQuery({ queryKey: ["my-bookings"], queryFn: () => api.get("/my/bookings").then((r) => r.data), refetchInterval: 15000 });
   return (
     <div className="min-h-screen bg-slate-50">
@@ -125,10 +174,12 @@ export default function StudentPortal() {
             <Plus className="h-5 w-5" /> حجز رحلة جديدة
           </Button>
         </div>
+        <SavedPlaces onEdit={() => setPlaces(true)} />
         <h2 className="text-lg font-extrabold">رحلاتي وحجوزاتي</h2>
         {!isLoading && !data.length ? <Empty text="لا توجد حجوزات بعد" testId="student-bookings-empty" /> : <div className="space-y-4">{data.map((b) => <BookingCard key={b.id} b={b} />)}</div>}
       </main>
-      <NewBooking open={open} onClose={() => setOpen(false)} />
+      {open && <NewBooking onClose={() => setOpen(false)} />}
+      {places && <PlacesDialog onClose={() => setPlaces(false)} />}
     </div>
   );
 }
