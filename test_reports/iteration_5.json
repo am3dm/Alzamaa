@@ -1,0 +1,36 @@
+{
+  "summary": "Tested the 7-seat layout, dispatch, gender lock, the student seat view, and maps, end to end. Backend pytest: 35 of 35 passed, after updating the tests to the 7-seat layout and fixing one test bug. UI flows in Playwright all passed. The vehicle card shows 'صف 1: 1 | صف 2: 3 | صف 3: 3 | 7 مقاعد'. Stats show capacity 7 with the sub-label '(7 لكل سيارة)', and the trip card shows 2/7. Seat-map positions were measured with bounding boxes: the driver wheel is top-left (x=520) and seat 1 is top-right (x=704), with an orange border rgb(245,158,11). Row 2 reads 2,3,4 from left to right, so seat 4 is on the right; row 3 reads 5,6,7, so seat 7 is on the right. For a female booking, seats 5 and 6 in the male row showed as locked, disabled and red, and seat 7 was grey with 'TEST_طالب'. Clicking seat 4 turned it blue (selected) and set dispatch-selected-seat to 4. Confirm showed the toast 'تم تعيين TEST_أخرى في المقعد رقم 4', removed the booking from the pending list, and seat 4 became grey with the name. Clicking a booked seat opened a confirm dialog; accepting it unassigned the booking, which went back to pending. On the student portal, 'مقعد رقم 7' shows with a read-only seat map: all seats are disabled, seat 7 is blue with 'مقعدك', seat 4 is grey with no name, and the legend is shown. The pickup map loads Leaflet tiles, and the Google Maps and Waze links are correct. The admin booking dialog map picker sets coordinates when clicked. The dispatch panel shows navigation buttons for a booking with a location. The driver portal shows the full-route button and per-passenger Google Maps, Waze and call buttons. The API confirms that row 1 seat 2 now returns 400, each seat has a 'number' field, the gender lock returns 400, and /my/bookings seat_rows contains no occupant names, ids or row gender.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "seat_map / dispatch", "issue": "Bookings saved with the old 8-seat layout (row 1 seat 2) are no longer counted in seat_map, because only seats 1..ROWS[row] are checked. Those bookings still count in trips.occupancy, so a trip could exceed 7/7 and the student's seat shows the wrong number. No such data exists now, since there are 0 bookings, but no migration was done."},
+      {"endpoint": "POST /api/dispatch/{bid}/unassign", "issue": "Returns 200 even when the booking id does not exist (matched_count is not checked)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Seat legend (admin and student)", "issues": ["The 'محجوز' swatch (bg-slate-100 with no border) is barely visible on a white background. Add a border-slate-300 or a darker grey."]},
+      {"screen": "Dispatch view date / Trips date / Booking date", "issues": ["These use the browser's native input type=date instead of the shadcn Calendar date picker."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_tms_api.py", "/app/backend/tests/test_accounts_api.py", "/app/backend/tests/test_admin_settings.py", "/app/test_reports/pytest/pytest_tms_7seat.xml"],
+  "action_items": [
+    "Optional: migrate or handle old bookings that have seat {row:1, seat:2}, or drop invalid seats in trip_full and the occupancy count",
+    "Optional: make the 'محجوز' legend swatch and the taken seat style more visible",
+    "Optional: return 404 from unassign when the booking does not exist"
+  ],
+  "critical_code_review_comments": [
+    "There is no transaction or unique index on (vehicle_id, date, direction, seat). Two admins dispatching to the same seat at the same moment could both succeed (a race condition). A unique compound index or an atomic check would prevent this.",
+    "The seat layout constants are duplicated in the backend (ROWS, ROW_OFFSET) and the frontend (ROW_OFFSET, SEATS_PER_VEHICLE). The frontend could use the 'number' and 'capacity' values the API already returns, to avoid drift.",
+    "server.py is 780 lines, which is over the 700-line guideline. Consider splitting it into routers (dispatch, trips, accounts)."
+  ],
+  "updated_files": ["/app/backend/tests/test_tms_api.py (7-seat layout: capacity 7, invalid row/seat cases, gender lock 400, seat numbers [[1],[2,3,4],[5,6,7]], seat_rows privacy)", "/app/backend/tests/test_accounts_api.py (test bug: password 'abcd' is shorter than the 6-character minimum, changed to 'abcd12')"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin 1234567890 / admin123 (unchanged)",
+  "seed_data_creation": "Created a temporary trip and a TEST_موقع booking for the map checks. At the end, deleted by id all TEST_ data: these temporary records plus the main agent's TEST_طالب, TEST_سائق, TEST_أخرى, the vehicle 'TEST بغ 1', and the trip. What remains: 0 vehicles, 0 bookings, 0 trips, and the user's real accounts (الزعيم, علي كامل, مريم علي, عدنان مرسال), which were untouched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run the pytest suites with REACT_APP_BACKEND_URL exported (it is not in the backend env) and with -n 0. Seat layout: row 1 has 1 seat (number 1, premium), row 2 has 3 seats (2-4), row 3 has 3 seats (5-7). In the SeatMap grid (dir=ltr), row 1 is [driver, empty, seat1]. The DB now has no vehicles, bookings or trips."
+}

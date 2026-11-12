@@ -20,7 +20,7 @@ const seatState = (s, { gender, rowGender, selected }) => {
 
 const STYLE = {
   selected: "bg-primary border-primary text-white shadow-md",
-  taken: "bg-slate-100 border-slate-100 text-slate-400",
+  taken: "bg-slate-200 border-slate-200 text-slate-500",
   locked: "bg-red-50 border-red-200 text-red-300 cursor-not-allowed",
   premium: "bg-white border-amber-500 text-slate-800 hover:bg-amber-50",
   free: "bg-white border-slate-200 text-slate-800 hover:border-primary/60",
@@ -80,7 +80,7 @@ export const SeatLegend = ({ admin }) => (
     <span className="flex items-center gap-2"><i className="inline-block h-5 w-5 rounded-md border-2 border-slate-200 bg-white" /> متاح</span>
     <span className="flex items-center gap-2"><i className="inline-block h-5 w-5 rounded-md bg-primary" /> {admin ? "المختار" : "مقعدك"}</span>
     <span className="flex items-center gap-2"><i className="inline-block h-5 w-5 rounded-md border-2 border-amber-500 bg-white" /> مميّز</span>
-    <span className="flex items-center gap-2"><i className="inline-block h-5 w-5 rounded-md bg-slate-100" /> محجوز</span>
+    <span className="flex items-center gap-2"><i className="inline-block h-5 w-5 rounded-md bg-slate-200 border-2 border-slate-300" /> محجوز</span>
     {admin && <span className="flex items-center gap-2"><i className="inline-block h-5 w-5 rounded-md border-2 border-red-200 bg-red-50" /> مقفل للجنس الآخر</span>}
   </div>
 );

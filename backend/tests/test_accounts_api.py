@@ -187,7 +187,7 @@ def test_vehicle_driver_link_sync_and_delete_guard(admin, ctx):
 
 # Delete account
 def test_delete_account(admin, ctx):
-    r = create(admin, ctx, role="driver", name="TEST_Del", phone=num(), password="abcd")
+    r = create(admin, ctx, role="driver", name="TEST_Del", phone=num(), password="abcd12")
     uid = r.json()["id"]
     assert admin.delete(f"{API}/accounts/{uid}").status_code == 200
     assert all(a["id"] != uid for a in admin.get(f"{API}/accounts").json())

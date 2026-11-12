@@ -618,7 +618,9 @@ async def dispatch(body: DispatchIn, _=Depends(admin_only)):
 
 @api.post("/dispatch/{bid}/unassign")
 async def unassign(bid: str, _=Depends(admin_only)):
-    await db.bookings.update_one({"_id": oid(bid)}, {"$set": {"vehicle_id": None, "seat": None, "status": "pending"}})
+    res = await db.bookings.update_one({"_id": oid(bid)}, {"$set": {"vehicle_id": None, "seat": None, "status": "pending"}})
+    if not res.matched_count:
+        raise HTTPException(404, "الحجز غير موجود")
     return {"ok": True}
 
 

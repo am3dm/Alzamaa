@@ -90,7 +90,7 @@ def test_vehicle_crud_and_driver(admin, ctx):
     assert r.status_code == 200 and r.json()["model"] == "H1"
     lst = admin.get(f"{API}/vehicles").json()
     v = next(x for x in lst if x["id"] == vid)
-    assert v["capacity"] == 8 and v["driver_name"] == "TEST_Driver" and v["driver_phone"] == dphone and v["driver_id"] == did
+    assert v["capacity"] == 7 and v["driver_name"] == "TEST_Driver" and v["driver_phone"] == dphone and v["driver_id"] == did
     # driver login still works with old password
     assert login(dphone, "drv123").status_code == 200
 
@@ -117,12 +117,25 @@ def test_dispatch_gender_lock_and_conflicts(admin, ctx):
     seats = admin.get(f"{API}/dispatch/seats", params={"vehicle_id": vid, "booking_id": f["id"]}).json()
     assert seats["rows"][0]["gender"] == "male"
     r = admin.post(f"{API}/dispatch", json={"booking_id": f["id"], "vehicle_id": vid, "row": 1, "seat": 2})
-    assert r.status_code == 400
+    assert r.status_code == 400  # row 1 has only 1 seat in 7-seat layout
     r = admin.post(f"{API}/dispatch", json={"booking_id": m2["id"], "vehicle_id": vid, "row": 1, "seat": 1})
     assert r.status_code == 400  # occupied
     assert admin.post(f"{API}/dispatch", json={"booking_id": m2["id"], "vehicle_id": vid, "row": 1, "seat": 3}).status_code == 400
     assert admin.post(f"{API}/dispatch", json={"booking_id": f["id"], "vehicle_id": vid, "row": 2, "seat": 1}).status_code == 200
+    # gender lock row 2 (female) -> male refused
+    r = admin.post(f"{API}/dispatch", json={"booking_id": m2["id"], "vehicle_id": vid, "row": 2, "seat": 3})
+    assert r.status_code == 400 and "قفل" in r.json()["detail"]
+    for bad in ((2, 4), (3, 4), (4, 1), (0, 1), (2, 0)):
+        assert admin.post(f"{API}/dispatch", json={"booking_id": m2["id"], "vehicle_id": vid, "row": bad[0], "seat": bad[1]}).status_code == 400
     ctx["m"], ctx["f"], ctx["m2"] = m, f, m2
+
+
+def test_seat_layout_numbers(admin, ctx):
+    rows = admin.get(f"{API}/dispatch/seats", params={"vehicle_id": ctx["vid"], "date": DATE, "direction": "go"}).json()["rows"]
+    assert [len(r["seats"]) for r in rows] == [1, 3, 3]
+    assert [[s["number"] for s in r["seats"]] for r in rows] == [[1], [2, 3, 4], [5, 6, 7]]
+    assert rows[0]["seats"][0]["occupant"]["id"] == ctx["m"]["id"]
+    assert rows[1]["seats"][0]["occupant"]["id"] == ctx["f"]["id"] and rows[1]["gender"] == "female"
 
 
 def test_round_trip_occupies_both(admin, ctx):
@@ -140,7 +153,7 @@ def test_round_trip_occupies_both(admin, ctx):
 
 def test_unassign(admin, ctx):
     m2 = ctx["m2"]
-    assert admin.post(f"{API}/dispatch", json={"booking_id": m2["id"], "vehicle_id": ctx["vid"], "row": 1, "seat": 2}).status_code == 200
+    assert admin.post(f"{API}/dispatch", json={"booking_id": m2["id"], "vehicle_id": ctx["vid"], "row": 3, "seat": 3}).status_code == 200
     assert admin.post(f"{API}/dispatch/{m2['id']}/unassign").status_code == 200
     b = next(x for x in admin.get(f"{API}/bookings", params={"date": DATE}).json() if x["id"] == m2["id"])
     assert b["status"] == "pending" and b["vehicle_id"] is None
@@ -212,6 +225,18 @@ def test_student_flow(admin, ctx):
     mine = s.get(f"{API}/my/bookings").json()
     b = next(x for x in mine if x["id"] == bid)
     assert b["vehicle"]["id"] == ctx["vid2"] and b["seat"] == {"row": 2, "seat": 1}
+    # seat_rows: own seat flagged, other occupants anonymised
+    other = mk_booking(admin, ctx, "OtherF", "female")
+    assert admin.post(f"{API}/dispatch", json={"booking_id": other["id"], "vehicle_id": ctx["vid2"], "row": 3, "seat": 3}).status_code == 200
+    b = next(x for x in s.get(f"{API}/my/bookings").json() if x["id"] == bid)
+    sr = b["seat_rows"]
+    assert [[x["number"] for x in r["seats"]] for r in sr] == [[1], [2, 3, 4], [5, 6, 7]]
+    flat = {x["number"]: x for r in sr for x in r["seats"]}
+    assert flat[2]["mine"] is True and flat[2]["taken"] is False
+    assert flat[7]["taken"] is True and flat[7]["mine"] is False
+    raw = str(sr)
+    assert "TEST_OtherF" not in raw and other["id"] not in raw and "occupant" not in raw
+    assert all("gender" not in r for r in sr)
     assert s.post(f"{API}/my/bookings/{bid}/cancel").status_code == 200
     b = next(x for x in s.get(f"{API}/my/bookings").json() if x["id"] == bid)
     assert b["status"] == "cancelled" and b["vehicle_id"] is None
@@ -224,4 +249,4 @@ def test_stats(admin):
     d = r.json()
     for k in ("vehicles", "capacity", "bookings_total", "trips_total", "occupancy_rate", "students_pending"):
         assert k in d
-    assert d["capacity"] == d["vehicles"] * 8
+    assert d["capacity"] == d["vehicles"] * 7
