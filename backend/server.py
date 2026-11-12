@@ -122,13 +122,17 @@ class UniversityIn(BaseModel):
     name: str = Field(min_length=2)
 
 
+DATE_RE = r"^\d{4}-\d{2}-\d{2}$"
+TIME_RE = r"^(0[6-9]|1[0-8]):[0-5]\d$|^19:00$"
+
+
 class BookingIn(BaseModel):
     student_name: str = Field(min_length=2)
     phone: str = Field(min_length=6)
     gender: Literal["male", "female"]
-    university: str
-    date: str
-    pickup_time: str
+    university: str = Field(min_length=2)
+    date: str = Field(pattern=DATE_RE)
+    pickup_time: str = Field(pattern=TIME_RE)
     trip_type: Literal["go", "return", "round"]
     location: Optional[Location] = None
     address: Optional[str] = ""
@@ -136,8 +140,8 @@ class BookingIn(BaseModel):
 
 
 class StudentBookingIn(BaseModel):
-    date: str
-    pickup_time: str
+    date: str = Field(pattern=DATE_RE)
+    pickup_time: str = Field(pattern=TIME_RE)
     trip_type: Literal["go", "return", "round"]
     location: Optional[Location] = None
     address: Optional[str] = ""
@@ -157,7 +161,7 @@ class DispatchIn(BaseModel):
 
 class TripIn(BaseModel):
     vehicle_id: str
-    date: str
+    date: str = Field(pattern=DATE_RE)
     direction: Literal["go", "return"]
     start_time: str
 
@@ -176,14 +180,17 @@ class StudentStatusIn(BaseModel):
 @api.post("/auth/login")
 async def login(body: LoginIn, request: Request):
     phone = body.phone.strip()
-    ident = f"{request.client.host if request.client else ''}:{phone}"
+    ident = f"phone:{phone}"
     att = await db.login_attempts.find_one({"identifier": ident})
-    if att and att.get("count", 0) >= 5 and att.get("until", "") > now_iso():
+    if att and att.get("until", "") <= now_iso():
+        await db.login_attempts.delete_one({"identifier": ident})
+        att = None
+    if att and att.get("count", 0) >= 5:
         raise HTTPException(429, "محاولات كثيرة، حاول بعد 15 دقيقة")
     user = await db.users.find_one({"phone": phone})
     if not user or not check_pw(body.password, user["password_hash"]):
         count = (att or {}).get("count", 0) + 1
-        until = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+        until = att["until"] if att else (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
         await db.login_attempts.update_one({"identifier": ident}, {"$set": {"count": count, "until": until}}, upsert=True)
         raise HTTPException(401, "رقم الهاتف أو كلمة المرور غير صحيحة")
     await db.login_attempts.delete_one({"identifier": ident})
@@ -205,7 +212,6 @@ async def register(body: RegisterIn):
     phone = body.phone.strip()
     if await db.users.find_one({"phone": phone}):
         raise HTTPException(400, "رقم الهاتف مسجل مسبقاً")
-    await ensure_university(body.university)
     await db.users.insert_one({
         "name": body.name.strip(), "phone": phone, "password_hash": hash_pw(body.password),
         "role": "student", "status": "pending", "gender": body.gender, "university": body.university,
@@ -253,6 +259,11 @@ async def upsert_driver(name: str, phone: str, password: Optional[str]):
         await db.users.insert_one(update)
 
 
+async def deactivate_driver_if_unused(phone: str, exclude_vehicle_id):
+    if not await db.vehicles.find_one({"driver_phone": phone, "_id": {"$ne": exclude_vehicle_id}}):
+        await db.users.update_one({"phone": phone, "role": "driver"}, {"$set": {"status": "rejected"}})
+
+
 @api.get("/vehicles")
 async def list_vehicles(_=Depends(admin_only)):
     vs = [ser(v) for v in await db.vehicles.find().sort("created_at", -1).to_list(500)]
@@ -279,7 +290,11 @@ async def update_vehicle(vid: str, body: VehicleIn, _=Depends(admin_only)):
     v = await db.vehicles.find_one({"_id": oid(vid)})
     if not v:
         raise HTTPException(404, "السيارة غير موجودة")
+    if await db.vehicles.find_one({"plate": body.plate.strip(), "_id": {"$ne": v["_id"]}}):
+        raise HTTPException(400, "رقم اللوحة مسجل مسبقاً")
     await upsert_driver(body.driver_name.strip(), body.driver_phone.strip(), body.driver_password)
+    if v["driver_phone"] != body.driver_phone.strip():
+        await deactivate_driver_if_unused(v["driver_phone"], v["_id"])
     upd = {"plate": body.plate.strip(), "driver_name": body.driver_name.strip(),
            "driver_phone": body.driver_phone.strip(), "model": body.model}
     await db.vehicles.update_one({"_id": v["_id"]}, {"$set": upd})
@@ -288,7 +303,11 @@ async def update_vehicle(vid: str, body: VehicleIn, _=Depends(admin_only)):
 
 @api.delete("/vehicles/{vid}")
 async def delete_vehicle(vid: str, _=Depends(admin_only)):
-    await db.vehicles.delete_one({"_id": oid(vid)})
+    v = await db.vehicles.find_one({"_id": oid(vid)})
+    if not v:
+        raise HTTPException(404, "السيارة غير موجودة")
+    await deactivate_driver_if_unused(v["driver_phone"], v["_id"])
+    await db.vehicles.delete_one({"_id": v["_id"]})
     await db.bookings.update_many({"vehicle_id": vid, "status": "confirmed"},
                                   {"$set": {"status": "pending", "vehicle_id": None, "seat": None}})
     await db.trips.delete_many({"vehicle_id": vid, "status": {"$ne": "completed"}})
@@ -580,6 +599,8 @@ async def driver_trip_status(tid: str, body: TripStatusIn, user=Depends(role("dr
     t = await db.trips.find_one({"_id": oid(tid), "vehicle_id": {"$in": vids}})
     if not t:
         raise HTTPException(404, "الرحلة غير موجودة")
+    if (t["status"], body.status) not in (("pending", "in_progress"), ("in_progress", "completed")):
+        raise HTTPException(400, "لا يمكن تغيير حالة الرحلة بهذا الشكل")
     await apply_trip_status(t, body.status)
     return {"ok": True}
 

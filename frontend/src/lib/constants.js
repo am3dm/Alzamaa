@@ -48,7 +48,10 @@ export const formatTime = (t) => {
 
 export const BALAD_CENTER = [34.0164, 44.145];
 
-export const today = () => new Date().toISOString().slice(0, 10);
+export const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 export const googleNav = (loc) => `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`;
 export const wazeNav = (loc) => `https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`;

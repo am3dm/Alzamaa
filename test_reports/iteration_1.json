@@ -1,0 +1,43 @@
+{
+  "summary": "First full E2E run of Noexis TMS. Backend: 12 pytest tests (auth, vehicles CRUD, dispatch + gender lock, seat conflict, round trip occupying go+return, unassign, trips lifecycle + duplicate rejection + booking completion rules, driver portal, student register/approve/book/cancel, role 403s, stats) - 11/12 pass. Frontend (Playwright): admin login -> /admin with stats, add/edit vehicle, create bookings via dialog with Leaflet map click + new university, dispatch male row1 then female sees row1 seat locked (disabled), assign row2, unassign by clicking occupied seat (confirm), create trip (occupancy 2/8, passengers, Google Maps/Waze/full-route links with coordinates), duplicate trip toast, driver mobile login -> /driver start/complete, bookings became completed, student register -> pending login blocked -> admin approves in Students tab -> student logs in, creates round booking, cancels it, route guards redirect student/driver/logged-out correctly. All passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/vehicles/{id}", "issue": "Changing plate to one already used by another vehicle returns 500 (pymongo DuplicateKeyError from unique index) instead of 400. add_vehicle checks duplicates but update_vehicle does not."},
+      {"endpoint": "POST /api/auth/login", "issue": "Brute-force lockout ineffective in this deployment: identifier is request.client.host + phone, and client.host varies per ingress pod (6 bad attempts -> all 401, never 429; DB record showed count=3 for one IP). Use X-Forwarded-For first IP or key by phone only. Also once 'until' expires the count is not reset, so the next single failure re-locks immediately."},
+      {"endpoint": "PUT /api/vehicles/{id}", "issue": "Changing driver_phone leaves the old driver user account active (can still log in, but sees no trips); upsert_driver also renames any existing driver with that phone."},
+      {"endpoint": "POST /api/bookings, /api/my/bookings", "issue": "No server-side validation of pickup_time range (06:00-19:00) or date format; any string accepted."},
+      {"endpoint": "POST /api/auth/register", "issue": "Unauthenticated endpoint creates new universities (ensure_university) - anyone can pollute the university list."},
+      {"endpoint": "PATCH /api/driver/trips/{id}/status", "issue": "No state transition validation (pending->completed directly, completed->pending allowed)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Bookings filter, Dispatch view date, Trips form/filter, Booking dialog", "issues": ["Native browser date/time pickers (input type=date/time, shows mm/dd/yyyy LTR) instead of shadcn Calendar - inconsistent with Arabic RTL UI"]},
+      {"screen": "lib/constants today()", "issues": ["today() uses UTC (toISOString) - in Iraq (UTC+3) between 00:00-03:00 local, default date and driver 'today' highlight show yesterday"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_tms_api.py", "/app/backend/tests/cleanup_ui_data.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "update_vehicle: check plate uniqueness excluding current vehicle (return 400) to avoid 500",
+    "Fix login lockout identifier (use X-Forwarded-For or phone) and reset count after lock window expires",
+    "Optional: validate pickup_time within 06:00-19:00 and date format in BookingIn/StudentBookingIn",
+    "Optional: replace native date inputs with shadcn Calendar/Popover; use local date for today()"
+  ],
+  "critical_code_review_comments": [
+    "Auth uses Bearer token in localStorage (no httpOnly cookie) - accepted by design per E1 note; CORS allow_credentials=False with '*' default is consistent with that.",
+    "bcrypt hash verified starts with $2b$; seed admin only inserted if missing (does not overwrite password) - OK.",
+    "No delete endpoints for users/universities - test-created student/driver users and TEST_ universities remain in DB.",
+    "delete_vehicle does not deactivate the driver user account.",
+    "Trip passengers are ordered by pickup_time; with equal times order is arbitrary - consider secondary sort by seat."
+  ],
+  "updated_files": ["/app/backend/tests/test_tms_api.py", "/app/backend/tests/cleanup_ui_data.py"],
+  "success_rate": {"backend": "92% (11/12)", "frontend": "100%"},
+  "test_credentials": "Admin 1234567890/admin123 from /app/memory/test_credentials.md works.",
+  "seed_data_creation": "Created TEST_ vehicles/bookings/trips (deleted by id afterwards). Remaining (no delete API): driver users 079xxxxxxx/0790000111, student users 077xxxxxxx/0775550123 (TEST_Student, TEST_UI_Student), universities TEST_Uni*, TEST_UI_University.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=... pytest tests/test_tms_api.py (uses date 2030-01-15, unique suffixes, self-cleans vehicles/bookings/trips). test_vehicle_edit_to_duplicate_plate fails until PUT /vehicles dedupe fix. Shadcn selects: click trigger testid then `{testId}-option-{value}` with force=True. Leaflet map click: '[data-testid=map-picker] .leaflet-container'."
+}
