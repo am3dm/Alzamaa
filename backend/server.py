@@ -172,6 +172,14 @@ class StudentStatusIn(BaseModel):
     status: Literal["active", "rejected", "pending"]
 
 
+class ProfileIn(BaseModel):
+    name: str = Field(min_length=2)
+    phone: str = Field(min_length=6)
+    email: Optional[str] = ""
+    current_password: str
+    new_password: Optional[str] = None
+
+
 class AccountIn(BaseModel):
     name: str = Field(min_length=2)
     phone: str = Field(min_length=6)
@@ -214,6 +222,23 @@ async def login(body: LoginIn, request: Request):
 @api.get("/auth/me")
 async def me(user=Depends(current_user)):
     return user
+
+
+@api.put("/auth/me")
+async def update_me(body: ProfileIn, user=Depends(admin_only)):
+    doc = await db.users.find_one({"_id": ObjectId(user["id"])})
+    if not check_pw(body.current_password, doc["password_hash"]):
+        raise HTTPException(400, "كلمة المرور الحالية غير صحيحة")
+    phone = body.phone.strip()
+    if await db.users.find_one({"phone": phone, "_id": {"$ne": doc["_id"]}}):
+        raise HTTPException(400, "رقم الهاتف مستخدم لحساب آخر")
+    upd = {"name": body.name.strip(), "phone": phone, "email": (body.email or "").strip()}
+    if body.new_password:
+        if len(body.new_password) < 6:
+            raise HTTPException(400, "كلمة المرور الجديدة قصيرة (6 أحرف على الأقل)")
+        upd.update({"password_hash": hash_pw(body.new_password), "default_password": False})
+    await db.users.update_one({"_id": doc["_id"]}, {"$set": upd})
+    return ser(await db.users.find_one({"_id": doc["_id"]}))
 
 
 @api.post("/auth/register")
@@ -719,11 +744,14 @@ async def startup():
     await db.vehicles.create_index("plate", unique=True)
     await db.universities.create_index("name", unique=True)
     phone = os.environ["ADMIN_PHONE"]
-    if not await db.users.find_one({"phone": phone}):
+    if not await db.users.find_one({"role": "admin"}):
         await db.users.insert_one({
             "name": "مدير النظام", "phone": phone, "email": os.environ.get("ADMIN_EMAIL"),
             "password_hash": hash_pw(os.environ["ADMIN_PASSWORD"]), "role": "admin", "status": "active",
-            "created_at": now_iso()})
+            "default_password": True, "created_at": now_iso()})
+    for a in await db.users.find({"role": "admin", "default_password": {"$exists": False}}).to_list(10):
+        await db.users.update_one({"_id": a["_id"]}, {"$set": {
+            "default_password": check_pw(os.environ["ADMIN_PASSWORD"], a["password_hash"])}})
     if await db.universities.count_documents({}) == 0:
         for u in DEFAULT_UNIS:
             await ensure_university(u)

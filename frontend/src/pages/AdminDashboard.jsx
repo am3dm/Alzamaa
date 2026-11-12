@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Car, ClipboardList, MapPinned, Route, UserCog } from "lucide-react";
+import { Car, ClipboardList, MapPinned, Route, UserCog, ShieldAlert } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { AppHeader } from "@/components/AppHeader";
 import { StatsBar } from "@/components/admin/StatsBar";
 import { VehiclesSection } from "@/components/admin/VehiclesSection";
@@ -18,6 +19,7 @@ const TABS = [
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("vehicles");
+  const { user } = useAuth();
   const Active = TABS.find((t) => t.key === tab).C;
   return (
     <div className="min-h-screen bg-slate-50">
@@ -32,6 +34,12 @@ export default function AdminDashboard() {
           ))}
         </nav>
         <main className="space-y-6 min-w-0">
+          {user.default_password && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 flex items-start gap-3 text-amber-800" data-testid="default-password-banner">
+              <ShieldAlert className="h-5 w-5 mt-0.5 shrink-0" />
+              <div className="text-sm"><b>أنت تستخدم حساب الأدمن الافتراضي.</b> لحماية النظام غيّر رقم الهاتف وكلمة المرور من زر «إعدادات الحساب» في الأعلى.</div>
+            </div>
+          )}
           <StatsBar />
           <div key={tab} className="fade-up"><Active /></div>
         </main>
