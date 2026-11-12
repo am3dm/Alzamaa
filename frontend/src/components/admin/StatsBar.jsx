@@ -23,7 +23,7 @@ export const StatsBar = () => {
       <Stat icon={ClipboardList} label="الحجوزات" value={s.bookings_total}
         sub={`قيد الانتظار ${s.bookings_pending} · مؤكد ${s.bookings_confirmed}`} testId="stat-bookings" accent="text-amber-600 bg-amber-50" />
       <Stat icon={Route} label="الرحلات" value={s.trips_total} sub={`قيد التنفيذ ${s.trips_in_progress}`} testId="stat-trips" accent="text-emerald-600 bg-emerald-50" />
-      <Stat icon={Armchair} label="السعة الكلية" value={s.capacity} sub="مقعد (8 لكل سيارة)" testId="stat-capacity" accent="text-sky-600 bg-sky-50" />
+      <Stat icon={Armchair} label="السعة الكلية" value={s.capacity} sub="مقعد (7 لكل سيارة)" testId="stat-capacity" accent="text-sky-600 bg-sky-50" />
       <div className="col-span-2 lg:col-span-1">
         <Stat icon={Gauge} label="معدل الإشغال" value={`${s.occupancy_rate}%`} sub={<Progress value={s.occupancy_rate} className="h-2 mt-1" />} testId="stat-occupancy" />
       </div>

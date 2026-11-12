@@ -32,6 +32,11 @@ export const GENDERS = { male: "ذكر", female: "أنثى" };
 
 export const ROW_NAMES = { 1: "الصف الأمامي", 2: "الصف الأوسط", 3: "الصف الخلفي" };
 
+export const SEATS_PER_VEHICLE = 7;
+const ROW_OFFSET = { 1: 0, 2: 1, 3: 4 };
+export const seatNumber = (seat) => (seat ? ROW_OFFSET[seat.row] + seat.seat : null);
+export const PREMIUM_SEAT = 1;
+
 export const PICKUP_TIMES = Array.from({ length: 27 }, (_, i) => {
   const h = 6 + Math.floor(i / 2);
   const m = i % 2 ? "30" : "00";

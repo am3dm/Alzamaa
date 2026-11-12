@@ -10,7 +10,7 @@ import { BookingFields } from "@/components/BookingFields";
 import { StatusBadge } from "@/components/StatusBadge";
 import { NavButtons } from "@/components/NavButtons";
 import { SimpleSelect } from "@/components/Field";
-import { BOOKING_STATUS, TRIP_TYPES, GENDERS, ROW_NAMES, formatTime, today } from "@/lib/constants";
+import { BOOKING_STATUS, TRIP_TYPES, GENDERS, seatNumber, formatTime, today } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
 
 export const EMPTY_BOOKING = { student_name: "", phone: "", gender: "", university: "", date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", notes: "" };
@@ -60,7 +60,7 @@ const BookingRow = ({ b, onEdit }) => {
         {b.notes && <div className="text-xs text-amber-700 mt-1">{b.notes}</div>}
       </td>
       <td className="p-3 text-sm">
-        {b.vehicle ? <><div className="font-bold">{b.vehicle.plate}</div><div className="text-xs">{ROW_NAMES[b.seat?.row]} · مقعد {b.seat?.seat}</div></> : <span className="text-xs text-muted-foreground">غير موزع</span>}
+        {b.vehicle ? <><div className="font-bold">{b.vehicle.plate}</div><div className="text-xs">مقعد رقم {seatNumber(b.seat)}</div></> : <span className="text-xs text-muted-foreground">غير موزع</span>}
       </td>
       <td className="p-3"><StatusBadge map={BOOKING_STATUS} status={b.status} testId={`booking-status-${b.id}`} /></td>
       <td className="p-3"><NavButtons location={b.location} testPrefix={`booking-${b.id}`} /></td>

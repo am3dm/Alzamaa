@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Phone, Armchair, Car, Ban } from "lucide-react";
+import { Plus, Phone, Armchair, Car, Ban, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,8 +8,11 @@ import { AppHeader } from "@/components/AppHeader";
 import { BookingFields } from "@/components/BookingFields";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Empty } from "@/components/admin/SectionCard";
+import { SeatMap, SeatLegend } from "@/components/SeatMap";
+import { MapView } from "@/components/MapView";
+import { NavButtons } from "@/components/NavButtons";
 import { useAuth } from "@/context/AuthContext";
-import { BOOKING_STATUS, TRIP_STATUS, TRIP_TYPES, DIRECTIONS, ROW_NAMES, formatTime, today } from "@/lib/constants";
+import { BOOKING_STATUS, TRIP_STATUS, TRIP_TYPES, DIRECTIONS, seatNumber, formatTime, today } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
 
 const EMPTY = { date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", notes: "" };
@@ -55,10 +58,24 @@ const BookingCard = ({ b }) => {
       {b.vehicle ? (
         <div className="grid sm:grid-cols-3 gap-2 text-sm">
           <div className="rounded-xl bg-blue-50 p-3 flex items-center gap-2"><Car className="h-4 w-4 text-primary" /> {b.vehicle.plate}</div>
-          <div className="rounded-xl bg-blue-50 p-3 flex items-center gap-2"><Armchair className="h-4 w-4 text-primary" /> {ROW_NAMES[b.seat?.row]} · مقعد {b.seat?.seat}</div>
+          <div className="rounded-xl bg-blue-50 p-3 flex items-center gap-2"><Armchair className="h-4 w-4 text-primary" /> مقعد رقم <b data-testid={`my-booking-seat-${b.id}`}>{seatNumber(b.seat)}</b></div>
           <a href={`tel:${b.vehicle.driver_phone}`} className="rounded-xl bg-emerald-50 p-3 flex items-center gap-2 text-emerald-800 font-bold" data-testid={`my-booking-call-driver-${b.id}`}><Phone className="h-4 w-4" /> {b.vehicle.driver_name}</a>
         </div>
       ) : b.status === "pending" && <div className="text-sm text-amber-700">بانتظار توزيعك على سيارة ومقعد.</div>}
+      {b.seat_rows && (
+        <div className="space-y-3" data-testid={`my-booking-seatmap-${b.id}`}>
+          <div className="text-sm font-bold text-slate-700">مكانك في السيارة</div>
+          <div className="max-w-sm mx-auto"><SeatMap rows={b.seat_rows} interactive={false} showRowTags={false} /></div>
+          <SeatLegend />
+        </div>
+      )}
+      {b.location && (
+        <div className="space-y-2" data-testid={`my-booking-location-${b.id}`}>
+          <div className="text-sm font-bold text-slate-700 flex items-center gap-1"><MapPin className="h-4 w-4 text-primary" /> موقع الالتقاط {b.address && <span className="font-normal text-muted-foreground">· {b.address}</span>}</div>
+          <MapView location={b.location} testId={`my-booking-map-${b.id}`} />
+          <NavButtons location={b.location} testPrefix={`my-booking-${b.id}`} />
+        </div>
+      )}
       {!!b.trips?.length && (
         <div className="flex flex-wrap gap-2">
           {b.trips.map((t) => (

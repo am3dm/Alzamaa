@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPinned, Clock, Info } from "lucide-react";
+import { MapPinned, Clock, Info, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { SectionCard, Empty } from "@/components/admin/SectionCard";
-import { SeatMap } from "@/components/SeatMap";
+import { SeatMap, SeatLegend } from "@/components/SeatMap";
+import { NavButtons } from "@/components/NavButtons";
 import { Field, SimpleSelect } from "@/components/Field";
 import { useVehicles } from "@/components/admin/VehiclesSection";
-import { TRIP_TYPES, GENDERS, DIRECTIONS, ROW_NAMES, formatTime } from "@/lib/constants";
+import { TRIP_TYPES, GENDERS, DIRECTIONS, formatTime } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
 
 const PendingList = ({ items, selected, onSelect }) => (
@@ -27,20 +29,26 @@ const PendingList = ({ items, selected, onSelect }) => (
   </div>
 );
 
-const Legend = () => (
-  <div className="flex flex-wrap gap-3 text-xs text-slate-600">
-    <span className="flex items-center gap-1"><i className="h-3 w-3 rounded bg-blue-100 border border-blue-500" /> ذكر</span>
-    <span className="flex items-center gap-1"><i className="h-3 w-3 rounded bg-pink-100 border border-pink-400" /> أنثى</span>
-    <span className="flex items-center gap-1"><i className="h-3 w-3 rounded bg-white border border-slate-300" /> متاح</span>
-    <span className="flex items-center gap-1"><i className="h-3 w-3 rounded bg-red-50 border border-red-300" /> مقفل للجنس الآخر</span>
+const ConfirmBar = ({ seat, onConfirm }) => (
+  <div className="space-y-3" data-testid="dispatch-confirm-bar">
+    <div className="rounded-2xl bg-white border border-slate-200 px-5 py-4 flex items-center justify-between">
+      <span className="text-slate-600">المقعد: <b className="text-slate-900" data-testid="dispatch-selected-seat">{seat ? seat.number : "—"}</b></span>
+      <span className="text-sm text-muted-foreground">{seat ? "1 من 1 مقعد مختار" : "اختر مقعداً متاحاً"}</span>
+    </div>
+    <Button disabled={!seat} onClick={onConfirm} className="w-full h-14 rounded-2xl text-lg font-extrabold gap-2 shadow-lg shadow-blue-200" data-testid="dispatch-confirm-button">
+      <CheckCircle2 className="h-5 w-5" /> تأكيد التوزيع
+    </Button>
   </div>
 );
 
 export const DispatchSection = () => {
   const qc = useQueryClient();
   const { data: vehicles = [] } = useVehicles();
-  const [booking, setBooking] = useState(null);
-  const [vehicleId, setVehicleId] = useState("");
+  const [booking, setBookingRaw] = useState(null);
+  const [vehicleId, setVehicleIdRaw] = useState("");
+  const [seat, setSeat] = useState(null);
+  const setBooking = (b) => { setBookingRaw(b); setSeat(null); };
+  const setVehicleId = (v) => { setVehicleIdRaw(v); setSeat(null); };
   const [viewDate, setViewDate] = useState("");
   const [viewDir, setViewDir] = useState("go");
   const { data: pending = [] } = useQuery({ queryKey: ["bookings", { status: "pending" }], queryFn: () => api.get("/bookings", { params: { status: "pending" } }).then((r) => r.data), refetchInterval: 10000 });
@@ -48,10 +56,10 @@ export const DispatchSection = () => {
   const canLoad = vehicleId && (booking || viewDate);
   const { data: seats } = useQuery({ queryKey: ["seats", seatParams], queryFn: () => api.get("/dispatch/seats", { params: seatParams }).then((r) => r.data), enabled: !!canLoad, refetchInterval: 8000, staleTime: 0 });
 
-  const assign = async (seat) => {
+  const assign = async () => {
     try {
       await api.post("/dispatch", { booking_id: booking.id, vehicle_id: vehicleId, row: seat.row, seat: seat.seat });
-      toast.success(`تم تعيين ${booking.student_name} في ${ROW_NAMES[seat.row]} - مقعد ${seat.seat}`);
+      toast.success(`تم تعيين ${booking.student_name} في المقعد رقم ${seat.number}`);
       setViewDate(booking.date);
       setViewDir(booking.directions[0]);
       setBooking(null);
@@ -61,7 +69,7 @@ export const DispatchSection = () => {
     }
   };
   const unassign = async (seat) => {
-    if (!window.confirm(`إلغاء توزيع ${seat.occupant.student_name} وإرجاعه للانتظار؟`)) return;
+    if (!window.confirm(`إلغاء توزيع ${seat.occupant.student_name} (مقعد ${seat.number}) وإرجاعه للانتظار؟`)) return;
     await api.post(`/dispatch/${seat.occupant.id}/unassign`);
     toast.success("تم إلغاء التوزيع");
     qc.invalidateQueries();
@@ -86,9 +94,12 @@ export const DispatchSection = () => {
           )}
         </div>
         {booking ? (
-          <div className="mb-4 rounded-xl bg-blue-50 p-3 text-sm flex items-start gap-2" data-testid="dispatch-selected-info">
-            <Info className="h-4 w-4 text-primary mt-1" />
-            <span>تعيين <b>{booking.student_name}</b> ({GENDERS[booking.gender]}) — {TRIP_TYPES[booking.trip_type]} بتاريخ {booking.date}. اختر مقعداً متاحاً.</span>
+          <div className="mb-4 rounded-xl bg-blue-50 p-3 text-sm space-y-2" data-testid="dispatch-selected-info">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-primary mt-1" />
+              <span>تعيين <b>{booking.student_name}</b> ({GENDERS[booking.gender]}) — {TRIP_TYPES[booking.trip_type]} بتاريخ {booking.date} · التقاط {formatTime(booking.pickup_time)}. اختر مقعداً ثم اضغط تأكيد.</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 ps-6"><span className="text-xs text-slate-600">موقع الالتقاط:</span><NavButtons location={booking.location} testPrefix="dispatch-booking" /></div>
           </div>
         ) : (
           <div className="mb-4 text-sm text-muted-foreground">اختر حجزاً من القائمة لتعيينه، أو اعرض مقاعد سيارة بتاريخ معين. اضغط على مقعد مشغول لإلغاء توزيعه.</div>
@@ -96,9 +107,10 @@ export const DispatchSection = () => {
         {!vehicles.length ? <Empty text="أضف سيارة أولاً من قسم السيارات" testId="dispatch-no-vehicles" /> :
           !canLoad ? <Empty text="اختر السيارة لعرض المقاعد" testId="dispatch-choose-vehicle" /> :
           seats && (
-            <div className="max-w-md space-y-3">
-              <SeatMap rows={seats.rows} gender={booking?.gender} onSeat={assign} onOccupant={unassign} />
-              <Legend />
+            <div className="max-w-md mx-auto space-y-4">
+              <SeatMap rows={seats.rows} gender={booking?.gender} selected={seat?.number} onSeat={(s) => booking && setSeat(s)} onOccupant={unassign} />
+              <SeatLegend admin />
+              {booking && <ConfirmBar seat={seat} onConfirm={assign} />}
             </div>
           )}
       </SectionCard>

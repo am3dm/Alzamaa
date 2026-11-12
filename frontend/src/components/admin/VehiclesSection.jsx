@@ -74,7 +74,7 @@ const VehicleCard = ({ v, onEdit }) => {
       <div className="mt-3 text-sm font-bold">{v.driver_name}</div>
       <a href={`tel:${v.driver_phone}`} className="text-sm text-primary inline-flex items-center gap-1" dir="ltr"><Phone className="h-3.5 w-3.5" />{v.driver_phone}</a>
       <div className="mt-3 flex gap-1.5 text-xs">
-        {[2, 3, 3].map((n, i) => (
+        {[1, 3, 3].map((n, i) => (
           <span key={i} className="rounded-md bg-slate-100 px-2 py-1">صف {i + 1}: {n}</span>
         ))}
         <span className="rounded-md bg-blue-50 text-primary px-2 py-1 font-bold">{v.capacity} مقاعد</span>

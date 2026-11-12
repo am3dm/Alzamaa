@@ -27,8 +27,13 @@ api = APIRouter(prefix="/api")
 bearer = HTTPBearer(auto_error=False)
 logger = logging.getLogger("tms")
 
-ROWS = {1: 2, 2: 3, 3: 3}
+ROWS = {1: 1, 2: 3, 3: 3}
 CAPACITY = sum(ROWS.values())
+ROW_OFFSET = {1: 0, 2: 1, 3: 4}
+
+
+def seat_number(row: int, seat: int) -> int:
+    return ROW_OFFSET[row] + seat
 DIRECTIONS = {"go": ["go"], "return": ["return"], "round": ["go", "return"]}
 DEFAULT_UNIS = ["جامعة بغداد", "الجامعة التكنولوجية", "جامعة النهرين", "الجامعة الستينية", "جامعة الكرخ"]
 
@@ -417,6 +422,16 @@ async def my_bookings(user=Depends(role("student"))):
     items = [ser(b) for b in await db.bookings.find(q).sort([("date", -1), ("pickup_time", 1)]).to_list(500)]
     items = await enrich(items)
     for b in items:
+        b["seat_rows"] = None
+        if b.get("vehicle_id") and b.get("seat") and b["status"] in ("confirmed", "completed"):
+            rows = await seat_map(b["vehicle_id"], b["date"], b["directions"])
+            for row in rows:
+                row.pop("gender", None)
+                for s in row["seats"]:
+                    occ = s.pop("occupant")
+                    s["mine"] = bool(occ and occ["id"] == b["id"])
+                    s["taken"] = bool(occ) and not s["mine"]
+            b["seat_rows"] = rows
         trips = await db.trips.find({"vehicle_id": b.get("vehicle_id"), "date": b["date"],
                                      "direction": {"$in": b["directions"]}}).to_list(10) if b.get("vehicle_id") else []
         b["trips"] = [{"direction": t["direction"], "start_time": t["start_time"], "status": t["status"]} for t in trips]
@@ -556,7 +571,7 @@ async def seat_map(vehicle_id: str, date: str, directions: List[str], exclude_id
         seats = []
         for s in range(1, n + 1):
             occ = next((o for o in in_row if o["seat"]["seat"] == s), None)
-            seats.append({"row": r, "seat": s, "occupant": {
+            seats.append({"row": r, "seat": s, "number": seat_number(r, s), "occupant": {
                 "id": occ["id"], "student_name": occ["student_name"], "gender": occ["gender"],
                 "trip_type": occ["trip_type"]} if occ else None})
         rows.append({"row": r, "gender": next(iter(genders)) if len(genders) == 1 else (None if not genders else "mixed"),

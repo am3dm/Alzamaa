@@ -9,7 +9,7 @@ import { Field, SimpleSelect } from "@/components/Field";
 import { StatusBadge } from "@/components/StatusBadge";
 import { NavButtons } from "@/components/NavButtons";
 import { useVehicles } from "@/components/admin/VehiclesSection";
-import { DIRECTIONS, TRIP_STATUS, ROW_NAMES, formatTime, today, fullRoute } from "@/lib/constants";
+import { DIRECTIONS, TRIP_STATUS, seatNumber, SEATS_PER_VEHICLE, formatTime, today, fullRoute } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
 
 const dirOptions = Object.entries(DIRECTIONS).map(([value, label]) => ({ value, label }));
@@ -51,7 +51,7 @@ export const PassengerList = ({ passengers, large }) => (
           <span className="h-8 w-8 rounded-full bg-primary text-white grid place-items-center font-bold text-sm">{i + 1}</span>
           <div>
             <div className="font-bold">{p.student_name}</div>
-            <div className="text-xs text-muted-foreground">{formatTime(p.pickup_time)} · {ROW_NAMES[p.seat?.row]} مقعد {p.seat?.seat} · {p.university}</div>
+            <div className="text-xs text-muted-foreground">{formatTime(p.pickup_time)} · مقعد {seatNumber(p.seat)} · {p.university}</div>
             {p.address && <div className="text-xs text-slate-600">{p.address}</div>}
             {p.notes && <div className="text-xs text-amber-700">{p.notes}</div>}
           </div>
@@ -94,7 +94,7 @@ const TripCard = ({ t }) => {
           <div className="text-sm">{t.vehicle?.plate} · {t.vehicle?.driver_name} <span dir="ltr">({t.vehicle?.driver_phone})</span></div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-primary" data-testid={`trip-occupancy-${t.id}`}>{t.occupancy}/8</span>
+          <span className="text-sm font-bold text-primary" data-testid={`trip-occupancy-${t.id}`}>{t.occupancy}/{SEATS_PER_VEHICLE}</span>
           <StatusBadge map={TRIP_STATUS} status={t.status} testId={`trip-status-${t.id}`} />
           <Button size="icon" variant="ghost" className="text-red-600" onClick={remove} data-testid={`trip-delete-${t.id}`}><Trash2 className="h-4 w-4" /></Button>
         </div>
