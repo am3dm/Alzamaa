@@ -1,0 +1,99 @@
+{
+  "theme": "Light theme by default, optimized for outdoor driver visibility and admin office use. Dark mode is optional.",
+  "typography": {
+    "primary_font": "Tajawal",
+    "fallback_font": "system-ui, -apple-system, sans-serif",
+    "import_command": "@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');",
+    "headings": "Bold (700) or ExtraBold (800). CRITICAL: Use `tracking-normal`. Never use letter-spacing (`tracking-tight` or `tracking-wide`) in Arabic as it disconnects cursive letters.",
+    "body": "Regular (400) or Medium (500). Base size must be slightly larger for Arabic readability. Use 16px to 18px for body text.",
+    "line_height": "CRITICAL: Use `leading-relaxed` (1.625) or `leading-loose` (2). Arabic diacritics get cut off with tight line heights.",
+    "font_family_override": "Instruct Tailwind to use Tajawal as the default sans font in tailwind.config.js."
+  },
+  "colors": {
+    "primary": {
+      "DEFAULT": "#1D4ED8",
+      "hover": "#1E40AF",
+      "light": "#DBEAFE",
+      "foreground": "#FFFFFF",
+      "description": "Trustworthy Deep Azure Blue for primary actions, branding, and active states."
+    },
+    "surface": {
+      "background": "#F8FAFC",
+      "card": "#FFFFFF",
+      "border": "#E2E8F0"
+    },
+    "text": {
+      "main": "#0F172A",
+      "muted": "#64748B",
+      "inverse": "#FFFFFF"
+    },
+    "status": {
+      "pending": { "bg": "#FEF3C7", "text": "#D97706" },
+      "confirmed": { "bg": "#D1FAE5", "text": "#059669" },
+      "in_progress": { "bg": "#DBEAFE", "text": "#2563EB" },
+      "completed": { "bg": "#ECFDF5", "text": "#10B981" },
+      "cancelled": { "bg": "#FEE2E2", "text": "#DC2626" }
+    },
+    "dispatch_gender": {
+      "male": { "bg": "#EFF6FF", "border": "#3B82F6", "text": "#1D4ED8" },
+      "female": { "bg": "#FDF2F8", "border": "#EC4899", "text": "#BE185D" },
+      "empty": { "bg": "#F1F5F9", "border": "#CBD5E1", "text": "#94A3B8" },
+      "conflict": { "bg": "#FEF2F2", "border": "#EF4444", "text": "#B91C1C" }
+    }
+  },
+  "rtl_arabic_guidelines": {
+    "html_root": "Set `<html dir=\"rtl\" lang=\"ar\">` in index.html.",
+    "logical_properties": "CRITICAL: Use Tailwind's logical properties. Replace `ml/mr` with `ms/me` (margin-start, margin-end), `pl/pr` with `ps/pe`, `text-left/text-right` with `text-start/text-end`.",
+    "icons": "Use `lucide-react`. Ensure directional icons (arrows, chevrons, play/forward) are logically flipped for RTL contexts.",
+    "alignment": "Right-align by default for text (which is start-aligned in RTL). Ensure numeric data aligns correctly."
+  },
+  "layouts": {
+    "admin_dashboard": "Persistent sidebar navigation on the right (RTL start). Top header with user profile, stats, and quick actions. Content area uses Bento grid principles for KPI stats.",
+    "student_portal": "Clean, mobile-first centered layout with a bottom navigation bar on mobile, or top navigation on desktop. Large CTA for 'New Booking'.",
+    "driver_screen": "Ultra-simplified mobile-first view. Large tap targets (minimum h-12/48px). High contrast. One prominent card per trip with an ordered list of students and a massive 'Navigate via Maps' button.",
+    "dispatch_seat_map": "Visual Van layout inside a Card. Grid of 8 seats representing a minivan. Row 1: 2 seats (passenger + gap + driver implied). Row 2: 3 seats. Row 3: 3 seats. Use color-coding to show Male/Female/Empty. Enforce gender lock visually."
+  },
+  "components": {
+    "buttons": "Rounded-lg or pill-shaped. High contrast. Add interactive hover states (`hover:bg-blue-800`). Use `h-11` or `h-12` for primary actions.",
+    "cards": "Cardless or subtle border (`border-slate-200`) with soft shadow (`shadow-sm`). Solid white background. NO transparent backgrounds.",
+    "forms": "Use customized Shadcn UI forms. Inputs must have clear labels on the right (RTL). Select components must not have transparent backgrounds.",
+    "tables": "Dense rows for admin. Striped rows (`even:bg-slate-50`) for readability. Status columns use colored Badges.",
+    "map_picker": "Aspect-video container using Leaflet/React-Leaflet to drop a pin. Small embedded map purely for coordinate extraction."
+  },
+  "image_urls": {
+    "vehicles": [
+      {
+        "url": "https://images.unsplash.com/photo-1647702504702-6b3dc40eafe5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwyfHx3aGl0ZSUyMHBhc3NlbmdlciUyMHZhbnxlbnwwfHx8fDE3OTQ1MDUzMzV8MA&ixlib=rb-4.1.0&q=85",
+        "description": "White passenger van driving, use as placeholder for vehicle details/cards."
+      }
+    ],
+    "students": [
+      {
+        "url": "https://images.unsplash.com/photo-1723083640305-a48b71429db1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBtaWRkbGUlMjBlYXN0fGVufDB8fHx8MTc5NDUwNTMzNXww&ixlib=rb-4.1.0&q=85",
+        "description": "University students walking, use for student portal login/registration background."
+      }
+    ],
+    "drivers": [
+      {
+        "url": "https://images.unsplash.com/photo-1762095996527-126e49ef9d72?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwyfHxmcmllbmRseSUyMG1hbGUlMjBkcml2ZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3OTQ1MDUzMzV8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Friendly male driver in van, use for driver profile avatar."
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Use JavaScript (.js/.jsx) for React components, DO NOT use TypeScript (.tsx).",
+    "Use Shadcn UI components but heavily customize them. Strip standard generic borders if possible, use Tailwind to match the defined theme.",
+    "Implement React Hook Form for Bookings and Registration.",
+    "For the Dispatch UI, construct the Van visual map using CSS Grid. Add visual validation so a user understands if a seat assignment violates the row's gender lock.",
+    "The Map Component only needs to capture Lat/Lng (to save a point). When displaying to the driver, construct a button that opens `href='https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}'`.",
+    "Make sure to apply the 'dir=rtl' attribute at the top level and ensure all text aligns appropriately to the right."
+  ],
+  "universal_guidelines": [
+    "All interactive and key informational elements MUST include a `data-testid` attribute (e.g., `data-testid='login-submit-button'`).",
+    "Do not use generic centered layouts. Asymmetry creates interest. Left-align (or Right-align in RTL) forms, dense content, and data.",
+    "Never apply universal transition (`transition: all`). Target specific properties like `transition-colors` or `transition-transform`.",
+    "Add micro-animations on buttons and cards using hover and active states.",
+    "Never use purely transparent backgrounds on structural surfaces like headers or dropdown menus.",
+    "Use `sonner` for toast notifications."
+  ]
+}

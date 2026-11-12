@@ -1,0 +1,61 @@
+export const BOOKING_STATUS = {
+  pending: { label: "قيد الانتظار", cls: "bg-amber-100 text-amber-700" },
+  confirmed: { label: "مؤكد", cls: "bg-emerald-100 text-emerald-700" },
+  completed: { label: "مكتمل", cls: "bg-teal-50 text-teal-600" },
+  cancelled: { label: "ملغى", cls: "bg-red-100 text-red-600" },
+};
+
+export const TRIP_STATUS = {
+  pending: { label: "قيد الانتظار", cls: "bg-amber-100 text-amber-700" },
+  in_progress: { label: "قيد التنفيذ", cls: "bg-blue-100 text-blue-700" },
+  completed: { label: "مكتملة", cls: "bg-emerald-100 text-emerald-700" },
+};
+
+export const STUDENT_STATUS = {
+  pending: { label: "بانتظار الموافقة", cls: "bg-amber-100 text-amber-700" },
+  active: { label: "مفعل", cls: "bg-emerald-100 text-emerald-700" },
+  rejected: { label: "مرفوض", cls: "bg-red-100 text-red-600" },
+};
+
+export const TRIP_TYPES = {
+  go: "ذهاب (بلد ← بغداد)",
+  return: "إياب (بغداد ← بلد)",
+  round: "ذهاب وإياب",
+};
+
+export const DIRECTIONS = {
+  go: "ذهاب: بلد ← بغداد",
+  return: "إياب: بغداد ← بلد",
+};
+
+export const GENDERS = { male: "ذكر", female: "أنثى" };
+
+export const ROW_NAMES = { 1: "الصف الأمامي", 2: "الصف الأوسط", 3: "الصف الخلفي" };
+
+export const PICKUP_TIMES = Array.from({ length: 27 }, (_, i) => {
+  const h = 6 + Math.floor(i / 2);
+  const m = i % 2 ? "30" : "00";
+  return `${String(h).padStart(2, "0")}:${m}`;
+});
+
+export const formatTime = (t) => {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const suffix = h < 12 ? "ص" : "م";
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return `${hh}:${String(m).padStart(2, "0")} ${suffix}`;
+};
+
+export const BALAD_CENTER = [34.0164, 44.145];
+
+export const today = () => new Date().toISOString().slice(0, 10);
+
+export const googleNav = (loc) => `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`;
+export const wazeNav = (loc) => `https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`;
+
+export const fullRoute = (locs) => {
+  if (!locs.length) return null;
+  const dest = locs[locs.length - 1];
+  const waypoints = locs.slice(0, -1).map((l) => `${l.lat},${l.lng}`).join("|");
+  return `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}${waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : ""}&travelmode=driving`;
+};

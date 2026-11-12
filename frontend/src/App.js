@@ -1,55 +1,49 @@
-import { useEffect } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
+import "leaflet/dist/leaflet.css";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
+import { AuthProvider, useAuth, homeFor } from "@/context/AuthContext";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import AdminDashboard from "@/pages/AdminDashboard";
+import StudentPortal from "@/pages/StudentPortal";
+import DriverPortal from "@/pages/DriverPortal";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const Loading = () => (
+  <div className="min-h-screen grid place-items-center text-muted-foreground" data-testid="app-loading">جارِ التحميل...</div>
+);
+
+const Protected = ({ role, children }) => {
+  const { user } = useAuth();
+  if (user === null) return <Loading />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== role) return <Navigate to={homeFor(user.role)} replace />;
+  return children;
+};
 
 const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    // The marker attribute below lets the platform probe detect the stock splash — remove it with this page
-    <div data-emergent-splash>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
+  const { user } = useAuth();
+  if (user === null) return <Loading />;
+  return <Navigate to={user ? homeFor(user.role) : "/login"} replace />;
 };
 
 function App() {
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+    <div className="App" dir="rtl">
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/admin" element={<Protected role="admin"><AdminDashboard /></Protected>} />
+            <Route path="/student" element={<Protected role="student"><StudentPortal /></Protected>} />
+            <Route path="/driver" element={<Protected role="driver"><DriverPortal /></Protected>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+        <Toaster position="top-center" richColors dir="rtl" toastOptions={{ style: { fontFamily: "Tajawal" } }} />
+      </AuthProvider>
     </div>
   );
 }
