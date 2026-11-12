@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SectionCard, Empty } from "@/components/admin/SectionCard";
 import { SeatMap, SeatLegend } from "@/components/SeatMap";
-import { NavButtons } from "@/components/NavButtons";
+import { LegLinks } from "@/components/NavButtons";
 import { Field, SimpleSelect } from "@/components/Field";
 import { useVehicles } from "@/components/admin/VehiclesSection";
 import { TRIP_TYPES, GENDERS, DIRECTIONS, formatTime } from "@/lib/constants";
@@ -99,7 +99,7 @@ export const DispatchSection = () => {
               <Info className="h-4 w-4 text-primary mt-1" />
               <span>تعيين <b>{booking.student_name}</b> ({GENDERS[booking.gender]}) — {TRIP_TYPES[booking.trip_type]} بتاريخ {booking.date} · التقاط {formatTime(booking.pickup_time)}. اختر مقعداً ثم اضغط تأكيد.</span>
             </div>
-            <div className="flex flex-wrap items-center gap-2 ps-6"><span className="text-xs text-slate-600">موقع الالتقاط:</span><NavButtons location={booking.location} testPrefix="dispatch-booking" /></div>
+            <div className="ps-6"><LegLinks pickup={booking.location} dropoff={booking.dropoff_location} testPrefix="dispatch-booking" /></div>
           </div>
         ) : (
           <div className="mb-4 text-sm text-muted-foreground">اختر حجزاً من القائمة لتعيينه، أو اعرض مقاعد سيارة بتاريخ معين. اضغط على مقعد مشغول لإلغاء توزيعه.</div>

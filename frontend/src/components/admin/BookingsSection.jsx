@@ -8,12 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { SectionCard, Empty } from "@/components/admin/SectionCard";
 import { BookingFields } from "@/components/BookingFields";
 import { StatusBadge } from "@/components/StatusBadge";
-import { NavButtons } from "@/components/NavButtons";
+import { LegLinks } from "@/components/NavButtons";
 import { SimpleSelect } from "@/components/Field";
 import { BOOKING_STATUS, TRIP_TYPES, GENDERS, seatNumber, formatTime, today } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
 
-export const EMPTY_BOOKING = { student_name: "", phone: "", gender: "", university: "", date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", notes: "" };
+export const EMPTY_BOOKING = { student_name: "", phone: "", gender: "", university: "", date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", dropoff_location: null, dropoff_address: "", notes: "" };
 
 const BookingDialog = ({ initial, open, onClose }) => {
   const [f, setF] = useState(initial);
@@ -63,7 +63,7 @@ const BookingRow = ({ b, onEdit }) => {
         {b.vehicle ? <><div className="font-bold">{b.vehicle.plate}</div><div className="text-xs">مقعد رقم {seatNumber(b.seat)}</div></> : <span className="text-xs text-muted-foreground">غير موزع</span>}
       </td>
       <td className="p-3"><StatusBadge map={BOOKING_STATUS} status={b.status} testId={`booking-status-${b.id}`} /></td>
-      <td className="p-3"><NavButtons location={b.location} testPrefix={`booking-${b.id}`} /></td>
+      <td className="p-3"><LegLinks pickup={b.location} dropoff={b.dropoff_location} testPrefix={`booking-${b.id}`} /></td>
       <td className="p-3">
         <div className="flex gap-1">
           <Button size="icon" variant="ghost" onClick={onEdit} title="تعديل" data-testid={`booking-edit-${b.id}`}><Pencil className="h-4 w-4" /></Button>
@@ -96,7 +96,7 @@ export const BookingsSection = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-start min-w-[860px]" data-testid="bookings-table">
             <thead className="text-xs text-muted-foreground border-b">
-              <tr><th className="p-3 text-start">الطالب</th><th className="p-3 text-start">الرحلة</th><th className="p-3 text-start">السيارة والمقعد</th><th className="p-3 text-start">الحالة</th><th className="p-3 text-start">الموقع</th><th className="p-3 text-start">إجراءات</th></tr>
+              <tr><th className="p-3 text-start">الطالب</th><th className="p-3 text-start">الرحلة</th><th className="p-3 text-start">السيارة والمقعد</th><th className="p-3 text-start">الحالة</th><th className="p-3 text-start">التقاط / وصول</th><th className="p-3 text-start">إجراءات</th></tr>
             </thead>
             <tbody>{data.map((b) => <BookingRow key={b.id} b={b} onEdit={() => setDialog(b)} />)}</tbody>
           </table>

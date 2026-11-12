@@ -3,7 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Field, SimpleSelect } from "@/components/Field";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import { MapPicker } from "@/components/MapPicker";
-import { TRIP_TYPES, GENDERS, PICKUP_TIMES, formatTime } from "@/lib/constants";
+import { TRIP_TYPES, GENDERS, PICKUP_TIMES, LEG_LABELS, formatTime } from "@/lib/constants";
 
 const toOptions = (obj) => Object.entries(obj).map(([value, label]) => ({ value, label }));
 const timeOptions = PICKUP_TIMES.map((t) => ({ value: t, label: formatTime(t) }));
@@ -27,6 +27,7 @@ const StudentInfo = ({ value, set }) => (
 
 export const BookingFields = ({ value, onChange, withStudent }) => {
   const set = (patch) => onChange({ ...value, ...patch });
+  const leg = LEG_LABELS[value.trip_type] || LEG_LABELS.go;
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {withStudent && <StudentInfo value={value} set={set} />}
@@ -36,15 +37,19 @@ export const BookingFields = ({ value, onChange, withStudent }) => {
       <Field label="التاريخ">
         <Input type="date" className="h-11" value={value.date} onChange={(e) => set({ date: e.target.value })} data-testid="booking-date-input" />
       </Field>
-      <Field label="وقت الالتقاط">
+      <Field label="وقت الالتقاط" className="sm:col-span-2">
         <SimpleSelect value={value.pickup_time} onChange={(v) => set({ pickup_time: v })} options={timeOptions} testId="booking-time-select" />
       </Field>
-      <Field label="العنوان / أقرب نقطة دالة">
-        <Input className="h-11" value={value.address} onChange={(e) => set({ address: e.target.value })} data-testid="booking-address-input" />
-      </Field>
-      <Field label="موقع الالتقاط على الخريطة" className="sm:col-span-2">
-        <MapPicker value={value.location} onChange={(loc) => set({ location: loc })} />
-      </Field>
+      <div className="sm:col-span-2 rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-3" data-testid="booking-pickup-section">
+        <div className="flex items-center gap-2 font-bold text-primary"><span className="h-3 w-3 rounded-full bg-primary" /> {leg.pickup}</div>
+        <Input className="h-11 bg-white" placeholder="العنوان / أقرب نقطة دالة" value={value.address} onChange={(e) => set({ address: e.target.value })} data-testid="booking-address-input" />
+        <MapPicker key={`p-${value.trip_type}`} value={value.location} onChange={(loc) => set({ location: loc })} center={leg.pc} testPrefix="pickup-map" hint="اضغط على الخريطة لتحديد مكان الالتقاط" />
+      </div>
+      <div className="sm:col-span-2 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3" data-testid="booking-dropoff-section">
+        <div className="flex items-center gap-2 font-bold text-emerald-700"><span className="h-3 w-3 rounded-full bg-emerald-600" /> {leg.dropoff}</div>
+        <Input className="h-11 bg-white" placeholder="مثال: بوابة الجامعة / المنطقة" value={value.dropoff_address || ""} onChange={(e) => set({ dropoff_address: e.target.value })} data-testid="booking-dropoff-address-input" />
+        <MapPicker key={`d-${value.trip_type}`} value={value.dropoff_location} onChange={(loc) => set({ dropoff_location: loc })} center={leg.dc} color="#059669" testPrefix="dropoff-map" hint="اضغط على الخريطة لتحديد مكان الوصول" />
+      </div>
       <Field label="ملاحظات" className="sm:col-span-2">
         <Textarea value={value.notes} onChange={(e) => set({ notes: e.target.value })} data-testid="booking-notes-input" />
       </Field>

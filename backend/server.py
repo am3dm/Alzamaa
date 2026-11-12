@@ -139,6 +139,8 @@ class BookingIn(BaseModel):
     trip_type: Literal["go", "return", "round"]
     location: Optional[Location] = None
     address: Optional[str] = ""
+    dropoff_location: Optional[Location] = None
+    dropoff_address: Optional[str] = ""
     notes: Optional[str] = ""
 
 
@@ -148,6 +150,8 @@ class StudentBookingIn(BaseModel):
     trip_type: Literal["go", "return", "round"]
     location: Optional[Location] = None
     address: Optional[str] = ""
+    dropoff_location: Optional[Location] = None
+    dropoff_address: Optional[str] = ""
     notes: Optional[str] = ""
 
 
@@ -634,6 +638,12 @@ async def trip_full(t: dict):
     q = {"vehicle_id": t["vehicle_id"], "date": t["date"], "directions": t["direction"],
          "status": {"$in": ["confirmed", "completed"]}}
     passengers = [ser(b) for b in await db.bookings.find(q).sort("pickup_time", 1).to_list(50)]
+    for p in passengers:
+        reverse = p["trip_type"] == "round" and t["direction"] == "return"
+        pick = (p.get("dropoff_location"), p.get("dropoff_address")) if reverse else (p.get("location"), p.get("address"))
+        drop = (p.get("location"), p.get("address")) if reverse else (p.get("dropoff_location"), p.get("dropoff_address"))
+        p["leg_pickup"], p["leg_pickup_address"] = pick
+        p["leg_dropoff"], p["leg_dropoff_address"] = drop
     t["passengers"] = passengers
     t["occupancy"] = len(passengers)
     return t

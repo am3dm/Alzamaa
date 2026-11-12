@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SectionCard, Empty } from "@/components/admin/SectionCard";
 import { Field, SimpleSelect } from "@/components/Field";
 import { StatusBadge } from "@/components/StatusBadge";
-import { NavButtons } from "@/components/NavButtons";
+import { LegLinks } from "@/components/NavButtons";
 import { useVehicles } from "@/components/admin/VehiclesSection";
 import { DIRECTIONS, TRIP_STATUS, seatNumber, SEATS_PER_VEHICLE, formatTime, today, fullRoute } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
@@ -52,29 +52,37 @@ export const PassengerList = ({ passengers, large }) => (
           <div>
             <div className="font-bold">{p.student_name}</div>
             <div className="text-xs text-muted-foreground">{formatTime(p.pickup_time)} · مقعد {seatNumber(p.seat)} · {p.university}</div>
-            {p.address && <div className="text-xs text-slate-600">{p.address}</div>}
+            {p.leg_pickup_address && <div className="text-xs text-primary">التقاط: {p.leg_pickup_address}</div>}
+            {p.leg_dropoff_address && <div className="text-xs text-emerald-700">وصول: {p.leg_dropoff_address}</div>}
             {p.notes && <div className="text-xs text-amber-700">{p.notes}</div>}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-start gap-2">
           <a href={`tel:${p.phone}`} className={`${large ? "h-12 px-4" : "h-8 px-3"} inline-flex items-center gap-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold hover:bg-emerald-200 transition-colors`} data-testid={`passenger-call-${p.id}`}><Phone className="h-4 w-4" /> اتصال</a>
-          <NavButtons location={p.location} testPrefix={`passenger-${p.id}`} large={large} />
+          <LegLinks pickup={p.leg_pickup} dropoff={p.leg_dropoff} testPrefix={`passenger-${p.id}`} large={large} />
         </div>
       </li>
     ))}
   </ol>
 );
 
-export const TripActions = ({ trip, onStatus }) => (
+const routeStops = (trip) => [...trip.passengers.map((p) => p.leg_pickup), ...trip.passengers.map((p) => p.leg_dropoff)]
+  .filter(Boolean)
+  .filter((l, i, arr) => arr.findIndex((x) => x.lat === l.lat && x.lng === l.lng) === i);
+
+export const TripActions = ({ trip, onStatus }) => {
+  const route = fullRoute(routeStops(trip));
+  return (
   <div className="flex flex-wrap gap-2">
     {trip.status === "pending" && <Button onClick={() => onStatus("in_progress")} className="gap-2 font-bold" data-testid={`trip-start-${trip.id}`}><Play className="h-4 w-4" /> بدء الرحلة</Button>}
     {trip.status === "in_progress" && <Button onClick={() => onStatus("completed")} className="gap-2 font-bold bg-emerald-600 hover:bg-emerald-700" data-testid={`trip-complete-${trip.id}`}><Flag className="h-4 w-4" /> إنهاء الرحلة</Button>}
-    {fullRoute(trip.passengers.filter((p) => p.location).map((p) => p.location)) && (
-      <a href={fullRoute(trip.passengers.filter((p) => p.location).map((p) => p.location))} target="_blank" rel="noreferrer" data-testid={`trip-full-route-${trip.id}`}
-        className="h-10 px-4 inline-flex items-center rounded-md border border-primary text-primary font-bold text-sm hover:bg-blue-50 transition-colors">فتح المسار كاملاً</a>
+    {route && (
+      <a href={route} target="_blank" rel="noreferrer" data-testid={`trip-full-route-${trip.id}`}
+        className="h-10 px-4 inline-flex items-center rounded-md border border-primary text-primary font-bold text-sm hover:bg-blue-50 transition-colors">فتح المسار كاملاً (التقاط ثم وصول)</a>
     )}
   </div>
-);
+  );
+};
 
 const TripCard = ({ t }) => {
   const qc = useQueryClient();

@@ -52,6 +52,13 @@ export const formatTime = (t) => {
 };
 
 export const BALAD_CENTER = [34.0164, 44.145];
+export const BAGHDAD_CENTER = [33.3152, 44.3661];
+
+export const LEG_LABELS = {
+  go: { pickup: "مكان الالتقاط (بلد)", dropoff: "مكان الوصول (بغداد)", pc: BALAD_CENTER, dc: BAGHDAD_CENTER },
+  return: { pickup: "مكان الالتقاط (بغداد)", dropoff: "مكان الوصول (بلد)", pc: BAGHDAD_CENTER, dc: BALAD_CENTER },
+  round: { pickup: "مكان الالتقاط في الذهاب (بلد) — وهو مكان الوصول في الإياب", dropoff: "مكان الوصول في الذهاب (بغداد) — وهو مكان الالتقاط في الإياب", pc: BALAD_CENTER, dc: BAGHDAD_CENTER },
+};
 
 export const today = () => {
   const d = new Date();

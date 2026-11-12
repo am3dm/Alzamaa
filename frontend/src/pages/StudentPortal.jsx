@@ -12,10 +12,10 @@ import { SeatMap, SeatLegend } from "@/components/SeatMap";
 import { MapView } from "@/components/MapView";
 import { NavButtons } from "@/components/NavButtons";
 import { useAuth } from "@/context/AuthContext";
-import { BOOKING_STATUS, TRIP_STATUS, TRIP_TYPES, DIRECTIONS, seatNumber, formatTime, today } from "@/lib/constants";
+import { BOOKING_STATUS, TRIP_STATUS, TRIP_TYPES, DIRECTIONS, LEG_LABELS, seatNumber, formatTime, today } from "@/lib/constants";
 import { api, errMsg } from "@/lib/api";
 
-const EMPTY = { date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", notes: "" };
+const EMPTY = { date: today(), pickup_time: "07:00", trip_type: "go", location: null, address: "", dropoff_location: null, dropoff_address: "", notes: "" };
 
 const NewBooking = ({ open, onClose }) => {
   const [f, setF] = useState(EMPTY);
@@ -37,6 +37,26 @@ const NewBooking = ({ open, onClose }) => {
         <Button onClick={save} className="h-12 font-bold" data-testid="student-booking-submit">إرسال طلب الحجز</Button>
       </DialogContent>
     </Dialog>
+  );
+};
+
+const PointCard = ({ b, kind }) => {
+  const pickup = kind === "pickup";
+  const loc = pickup ? b.location : b.dropoff_location;
+  const addr = pickup ? b.address : b.dropoff_address;
+  const label = (LEG_LABELS[b.trip_type] || LEG_LABELS.go)[kind];
+  return (
+    <div className="space-y-2" data-testid={`my-booking-${kind}-${b.id}`}>
+      <div className={`text-sm font-bold flex items-start gap-1 ${pickup ? "text-primary" : "text-emerald-700"}`}>
+        <MapPin className="h-4 w-4 mt-0.5 shrink-0" /> <span>{label}{addr && <span className="font-normal text-muted-foreground"> · {addr}</span>}</span>
+      </div>
+      {loc ? (
+        <>
+          <MapView location={loc} testId={`my-booking-${kind}-map-${b.id}`} />
+          <NavButtons location={loc} testPrefix={`my-booking-${kind}-${b.id}`} />
+        </>
+      ) : <div className="text-xs text-muted-foreground rounded-xl border border-dashed p-4">لم يُحدد على الخريطة</div>}
+    </div>
   );
 };
 
@@ -69,13 +89,10 @@ const BookingCard = ({ b }) => {
           <SeatLegend />
         </div>
       )}
-      {b.location && (
-        <div className="space-y-2" data-testid={`my-booking-location-${b.id}`}>
-          <div className="text-sm font-bold text-slate-700 flex items-center gap-1"><MapPin className="h-4 w-4 text-primary" /> موقع الالتقاط {b.address && <span className="font-normal text-muted-foreground">· {b.address}</span>}</div>
-          <MapView location={b.location} testId={`my-booking-map-${b.id}`} />
-          <NavButtons location={b.location} testPrefix={`my-booking-${b.id}`} />
-        </div>
-      )}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <PointCard b={b} kind="pickup" />
+        <PointCard b={b} kind="dropoff" />
+      </div>
       {!!b.trips?.length && (
         <div className="flex flex-wrap gap-2">
           {b.trips.map((t) => (
