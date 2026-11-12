@@ -236,7 +236,10 @@ async def update_me(body: ProfileIn, user=Depends(admin_only)):
     if body.new_password:
         if len(body.new_password) < 6:
             raise HTTPException(400, "كلمة المرور الجديدة قصيرة (6 أحرف على الأقل)")
-        upd.update({"password_hash": hash_pw(body.new_password), "default_password": False})
+        upd.update({"password_hash": hash_pw(body.new_password),
+                    "default_password": body.new_password == os.environ["ADMIN_PASSWORD"]})
+    if upd["email"] and "@" not in upd["email"]:
+        raise HTTPException(400, "البريد الإلكتروني غير صالح")
     await db.users.update_one({"_id": doc["_id"]}, {"$set": upd})
     return ser(await db.users.find_one({"_id": doc["_id"]}))
 

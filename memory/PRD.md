@@ -8,6 +8,7 @@ User choices: built-in DB (MongoDB) instead of Postgres; gender chosen manually 
 FastAPI (/app/backend/server.py) + MongoDB, JWT Bearer (phone+password, bcrypt). React RTL (Tajawal, blue), react-query, Leaflet/OSM map picker, Google Maps/Waze external links.
 
 ## Implemented (2026-11-12)
+- Default admin account (1234567890/admin123) for initial setup, editable from "إعدادات الحساب" (name, phone, email, password; requires current password); warning banner while default password is in use; seed never overwrites an edited admin
 - Admin "إدارة الحسابات": admin creates/edits/suspends/deletes driver & student accounts (tabs: students, drivers, new requests, suspended); vehicles now pick a driver from active driver accounts
 - Roles admin/driver/student; admin seeded; driver account created with vehicle; student register → admin approve
 - Vehicles CRUD, bookings CRUD + status, dispatch with visual seat map + gender lock + round-trip both directions, unassign
