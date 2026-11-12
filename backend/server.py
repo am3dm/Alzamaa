@@ -112,9 +112,7 @@ class RegisterIn(BaseModel):
 
 class VehicleIn(BaseModel):
     plate: str = Field(min_length=1)
-    driver_name: str = Field(min_length=1)
-    driver_phone: str = Field(min_length=6)
-    driver_password: Optional[str] = None
+    driver_id: str
     model: Optional[str] = ""
 
 
@@ -172,6 +170,17 @@ class TripStatusIn(BaseModel):
 
 class StudentStatusIn(BaseModel):
     status: Literal["active", "rejected", "pending"]
+
+
+class AccountIn(BaseModel):
+    name: str = Field(min_length=2)
+    phone: str = Field(min_length=6)
+    password: Optional[str] = None
+    role: Literal["driver", "student"]
+    gender: Optional[Literal["male", "female"]] = None
+    university: Optional[str] = ""
+    notes: Optional[str] = ""
+    status: Literal["active", "pending", "rejected"] = "active"
 
 
 # ---------- Auth ----------
@@ -243,25 +252,11 @@ async def add_university(body: UniversityIn, _=Depends(admin_only)):
 # ---------- Vehicles ----------
 
 
-async def upsert_driver(name: str, phone: str, password: Optional[str]):
-    existing = await db.users.find_one({"phone": phone})
-    if existing and existing["role"] != "driver":
-        raise HTTPException(400, "رقم هاتف السائق مستخدم لحساب آخر")
-    update = {"name": name, "phone": phone, "role": "driver", "status": "active"}
-    if password:
-        update["password_hash"] = hash_pw(password)
-    if existing:
-        await db.users.update_one({"_id": existing["_id"]}, {"$set": update})
-    else:
-        if not password:
-            raise HTTPException(400, "يجب تحديد كلمة مرور لحساب السائق")
-        update["created_at"] = now_iso()
-        await db.users.insert_one(update)
-
-
-async def deactivate_driver_if_unused(phone: str, exclude_vehicle_id):
-    if not await db.vehicles.find_one({"driver_phone": phone, "_id": {"$ne": exclude_vehicle_id}}):
-        await db.users.update_one({"phone": phone, "role": "driver"}, {"$set": {"status": "rejected"}})
+async def driver_fields(driver_id: str):
+    d = await db.users.find_one({"_id": oid(driver_id), "role": "driver"})
+    if not d:
+        raise HTTPException(400, "اختر سائقاً من الحسابات (أنشئه من إدارة الحسابات)")
+    return {"driver_id": driver_id, "driver_name": d["name"], "driver_phone": d["phone"]}
 
 
 @api.get("/vehicles")
@@ -277,9 +272,7 @@ async def add_vehicle(body: VehicleIn, _=Depends(admin_only)):
     plate = body.plate.strip()
     if await db.vehicles.find_one({"plate": plate}):
         raise HTTPException(400, "رقم اللوحة مسجل مسبقاً")
-    await upsert_driver(body.driver_name.strip(), body.driver_phone.strip(), body.driver_password)
-    doc = {"plate": plate, "driver_name": body.driver_name.strip(), "driver_phone": body.driver_phone.strip(),
-           "model": body.model, "created_at": now_iso()}
+    doc = {"plate": plate, **await driver_fields(body.driver_id), "model": body.model, "created_at": now_iso()}
     res = await db.vehicles.insert_one(doc)
     doc["_id"] = res.inserted_id
     return ser(doc)
@@ -292,11 +285,7 @@ async def update_vehicle(vid: str, body: VehicleIn, _=Depends(admin_only)):
         raise HTTPException(404, "السيارة غير موجودة")
     if await db.vehicles.find_one({"plate": body.plate.strip(), "_id": {"$ne": v["_id"]}}):
         raise HTTPException(400, "رقم اللوحة مسجل مسبقاً")
-    await upsert_driver(body.driver_name.strip(), body.driver_phone.strip(), body.driver_password)
-    if v["driver_phone"] != body.driver_phone.strip():
-        await deactivate_driver_if_unused(v["driver_phone"], v["_id"])
-    upd = {"plate": body.plate.strip(), "driver_name": body.driver_name.strip(),
-           "driver_phone": body.driver_phone.strip(), "model": body.model}
+    upd = {"plate": body.plate.strip(), **await driver_fields(body.driver_id), "model": body.model}
     await db.vehicles.update_one({"_id": v["_id"]}, {"$set": upd})
     return ser(await db.vehicles.find_one({"_id": v["_id"]}))
 
@@ -306,7 +295,6 @@ async def delete_vehicle(vid: str, _=Depends(admin_only)):
     v = await db.vehicles.find_one({"_id": oid(vid)})
     if not v:
         raise HTTPException(404, "السيارة غير موجودة")
-    await deactivate_driver_if_unused(v["driver_phone"], v["_id"])
     await db.vehicles.delete_one({"_id": v["_id"]})
     await db.bookings.update_many({"vehicle_id": vid, "status": "confirmed"},
                                   {"$set": {"status": "pending", "vehicle_id": None, "seat": None}})
@@ -445,6 +433,83 @@ async def set_student_status(sid: str, body: StudentStatusIn, _=Depends(admin_on
     res = await db.users.update_one({"_id": oid(sid), "role": "student"}, {"$set": {"status": body.status}})
     if not res.matched_count:
         raise HTTPException(404, "الطالب غير موجود")
+    return {"ok": True}
+
+
+# ---------- Accounts (admin) ----------
+
+
+def account_fields(body: AccountIn):
+    data = {"name": body.name.strip(), "phone": body.phone.strip(), "role": body.role, "status": body.status,
+            "notes": body.notes}
+    if body.role == "student":
+        if not body.gender or not body.university:
+            raise HTTPException(400, "حدد جنس الطالب وجامعته")
+        data.update({"gender": body.gender, "university": body.university.strip()})
+    if body.password:
+        if len(body.password) < 4:
+            raise HTTPException(400, "كلمة المرور قصيرة (4 أحرف على الأقل)")
+        data["password_hash"] = hash_pw(body.password)
+    return data
+
+
+@api.get("/accounts")
+async def list_accounts(role: Optional[str] = None, status: Optional[str] = None, _=Depends(admin_only)):
+    q = {"role": role if role in ("driver", "student") else {"$in": ["driver", "student"]}}
+    if status:
+        q["status"] = status
+    users = [ser(u) for u in await db.users.find(q).sort("created_at", -1).to_list(3000)]
+    plates = {}
+    for v in await db.vehicles.find().to_list(500):
+        plates.setdefault(v["driver_phone"], []).append(v["plate"])
+    for u in users:
+        if u["role"] == "driver":
+            u["vehicles"] = plates.get(u["phone"], [])
+    return users
+
+
+@api.post("/accounts")
+async def create_account(body: AccountIn, _=Depends(admin_only)):
+    if not body.password:
+        raise HTTPException(400, "حدد كلمة المرور")
+    data = account_fields(body)
+    if await db.users.find_one({"phone": data["phone"]}):
+        raise HTTPException(400, "رقم الهاتف مسجل مسبقاً")
+    if body.role == "student":
+        await ensure_university(data["university"])
+    data.update({"created_at": now_iso(), "created_by": "admin"})
+    res = await db.users.insert_one(data)
+    data["_id"] = res.inserted_id
+    return ser(data)
+
+
+@api.put("/accounts/{uid}")
+async def update_account(uid: str, body: AccountIn, _=Depends(admin_only)):
+    u = await db.users.find_one({"_id": oid(uid), "role": {"$in": ["driver", "student"]}})
+    if not u:
+        raise HTTPException(404, "الحساب غير موجود")
+    if body.role != u["role"]:
+        raise HTTPException(400, "لا يمكن تغيير نوع الحساب")
+    data = account_fields(body)
+    if await db.users.find_one({"phone": data["phone"], "_id": {"$ne": u["_id"]}}):
+        raise HTTPException(400, "رقم الهاتف مسجل لحساب آخر")
+    if body.role == "student":
+        await ensure_university(data["university"])
+    await db.users.update_one({"_id": u["_id"]}, {"$set": data})
+    if u["role"] == "driver":
+        await db.vehicles.update_many({"driver_phone": u["phone"]},
+                                      {"$set": {"driver_phone": data["phone"], "driver_name": data["name"]}})
+    return ser(await db.users.find_one({"_id": u["_id"]}))
+
+
+@api.delete("/accounts/{uid}")
+async def delete_account(uid: str, _=Depends(admin_only)):
+    u = await db.users.find_one({"_id": oid(uid), "role": {"$in": ["driver", "student"]}})
+    if not u:
+        raise HTTPException(404, "الحساب غير موجود")
+    if u["role"] == "driver" and await db.vehicles.find_one({"driver_phone": u["phone"]}):
+        raise HTTPException(400, "السائق مرتبط بسيارة، غيّر سائق السيارة أو احذفها أولاً")
+    await db.users.delete_one({"_id": u["_id"]})
     return {"ok": True}
 
 

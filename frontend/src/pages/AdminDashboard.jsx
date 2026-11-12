@@ -1,19 +1,19 @@
 import { useState } from "react";
-import { Car, ClipboardList, MapPinned, Route, Users } from "lucide-react";
+import { Car, ClipboardList, MapPinned, Route, UserCog } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { StatsBar } from "@/components/admin/StatsBar";
 import { VehiclesSection } from "@/components/admin/VehiclesSection";
 import { BookingsSection } from "@/components/admin/BookingsSection";
 import { DispatchSection } from "@/components/admin/DispatchSection";
 import { TripsSection } from "@/components/admin/TripsSection";
-import { StudentsSection } from "@/components/admin/StudentsSection";
+import { AccountsSection } from "@/components/admin/AccountsSection";
 
 const TABS = [
   { key: "vehicles", label: "السيارات", icon: Car, C: VehiclesSection },
   { key: "bookings", label: "الحجوزات", icon: ClipboardList, C: BookingsSection },
   { key: "dispatch", label: "التوزيع", icon: MapPinned, C: DispatchSection },
   { key: "trips", label: "الرحلات", icon: Route, C: TripsSection },
-  { key: "students", label: "الطلاب", icon: Users, C: StudentsSection },
+  { key: "accounts", label: "إدارة الحسابات", icon: UserCog, C: AccountsSection },
 ];
 
 export default function AdminDashboard() {

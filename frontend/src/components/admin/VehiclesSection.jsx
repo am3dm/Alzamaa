@@ -5,22 +5,25 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field } from "@/components/Field";
+import { Field, SimpleSelect } from "@/components/Field";
 import { SectionCard, Empty } from "@/components/admin/SectionCard";
+import { useAccounts } from "@/components/admin/AccountsSection";
 import { api, errMsg } from "@/lib/api";
 
-const EMPTY = { plate: "", model: "", driver_name: "", driver_phone: "", driver_password: "" };
+const EMPTY = { plate: "", model: "", driver_id: "" };
 
 export const useVehicles = () => useQuery({ queryKey: ["vehicles"], queryFn: () => api.get("/vehicles").then((r) => r.data) });
 
 const VehicleForm = ({ initial, onDone }) => {
   const [f, setF] = useState(initial || EMPTY);
   const qc = useQueryClient();
+  const { data: drivers = [] } = useAccounts({ role: "driver" });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const submit = async (e) => {
     e.preventDefault();
+    if (!f.driver_id) return toast.error("اختر السائق");
     try {
-      const body = { ...f, driver_password: f.driver_password || null };
+      const body = { plate: f.plate, model: f.model, driver_id: f.driver_id };
       if (initial?.id) await api.put(`/vehicles/${initial.id}`, body);
       else await api.post("/vehicles", body);
       toast.success(initial?.id ? "تم تحديث السيارة" : "تمت إضافة السيارة");
@@ -32,13 +35,12 @@ const VehicleForm = ({ initial, onDone }) => {
     }
   };
   return (
-    <form onSubmit={submit} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="vehicle-form">
+    <form onSubmit={submit} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="vehicle-form">
       <Field label="رقم اللوحة"><Input className="h-11" placeholder="بغ 123456" value={f.plate} onChange={set("plate")} required data-testid="vehicle-plate-input" /></Field>
       <Field label="نوع السيارة (اختياري)"><Input className="h-11" placeholder="مثال: ستاركس" value={f.model} onChange={set("model")} data-testid="vehicle-model-input" /></Field>
-      <Field label="اسم السائق"><Input className="h-11" value={f.driver_name} onChange={set("driver_name")} required data-testid="vehicle-driver-name-input" /></Field>
-      <Field label="هاتف السائق (للدخول)"><Input dir="ltr" className="h-11" value={f.driver_phone} onChange={set("driver_phone")} required data-testid="vehicle-driver-phone-input" /></Field>
-      <Field label={initial?.id ? "كلمة مرور جديدة للسائق (اتركها فارغة للإبقاء)" : "كلمة مرور السائق"}>
-        <Input type="password" dir="ltr" className="h-11" value={f.driver_password} onChange={set("driver_password")} required={!initial?.id} minLength={4} data-testid="vehicle-driver-password-input" />
+      <Field label="السائق">
+        <SimpleSelect value={f.driver_id} onChange={(v) => setF({ ...f, driver_id: v })} placeholder={drivers.length ? "اختر السائق" : "أنشئ حساب سائق أولاً"} testId="vehicle-driver-select"
+          options={drivers.map((d) => ({ value: d.id, label: `${d.name} - ${d.phone}` }))} />
       </Field>
       <div className="flex items-end">
         <Button type="submit" className="h-11 w-full font-bold gap-2" data-testid="vehicle-submit-button">
@@ -90,7 +92,7 @@ export const VehiclesSection = () => {
       <SectionCard title={`السيارات المسجلة (${data.length})`} testId="vehicles-list-card">
         {!isLoading && !data.length ? <Empty text="لا توجد سيارات بعد، أضف أول سيارة من النموذج أعلاه" testId="vehicles-empty" /> : (
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {data.map((v) => <VehicleCard key={v.id} v={v} onEdit={() => setEdit({ ...v, driver_password: "" })} />)}
+            {data.map((v) => <VehicleCard key={v.id} v={v} onEdit={() => setEdit({ id: v.id, plate: v.plate, model: v.model || "", driver_id: v.driver_id || "" })} />)}
           </div>
         )}
       </SectionCard>
