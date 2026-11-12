@@ -43,7 +43,8 @@ def ctx(admin):
 def booking_body(name, trip_type, gender="male", **kw):
     b = {"student_name": f"TEST_{name}", "phone": f"07{uuid.uuid4().int % 10**9:09d}", "gender": gender,
          "university": "جامعة بغداد", "date": DATE, "pickup_time": "07:00", "trip_type": trip_type,
-         "location": P, "address": "TEST_pick", "dropoff_location": D, "dropoff_address": "TEST_drop", "notes": ""}
+         "location": P, "address": "TEST_pick", "dropoff_location": D, "dropoff_address": "TEST_drop", "notes": "",
+         "return_pickup_time": "15:00" if trip_type == "round" else None}
     b.update(kw)
     return b
 
@@ -153,7 +154,8 @@ def test_student_booking_dropoff(admin, ctx):
     tok = login(sphone, "stu123").json()["token"]
     h = {"Authorization": f"Bearer {tok}"}
     r = requests.post(f"{API}/my/bookings", headers=h, json={"date": DATE, "pickup_time": "08:00", "trip_type": "round",
-                                                            "location": P, "address": "a", "dropoff_location": D, "dropoff_address": "TEST_uni"})
+                                                            "location": P, "address": "a", "dropoff_location": D, "dropoff_address": "TEST_uni",
+                                                            "return_pickup_time": "15:00"})
     assert r.status_code == 200, r.text
     ctx["bookings"].append(r.json()["id"])
     mine = requests.get(f"{API}/my/bookings", headers=h).json()

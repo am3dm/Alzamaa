@@ -49,7 +49,8 @@ def mk_booking(admin, ctx, name, gender, trip_type="go", phone=None, date=DATE):
     r = admin.post(f"{API}/bookings", json={
         "student_name": f"TEST_{name}", "phone": phone or f"07{uuid.uuid4().int % 10**9:09d}", "gender": gender,
         "university": "جامعة بغداد", "date": date, "pickup_time": "07:00", "trip_type": trip_type,
-        "location": {"lat": 33.7, "lng": 44.25}, "address": "x", "notes": ""})
+        "location": {"lat": 33.7, "lng": 44.25}, "address": "x", "notes": "",
+        "return_pickup_time": "15:00" if trip_type == "round" else None})
     assert r.status_code == 200, r.text
     ctx["bookings"].append(r.json()["id"])
     return r.json()
