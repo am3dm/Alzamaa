@@ -8,6 +8,7 @@ import { BookingsSection } from "@/components/admin/BookingsSection";
 import { DispatchSection } from "@/components/admin/DispatchSection";
 import { TripsSection } from "@/components/admin/TripsSection";
 import { AccountsSection } from "@/components/admin/AccountsSection";
+import { DemoDataBar } from "@/components/admin/DemoDataBar";
 
 const TABS = [
   { key: "vehicles", label: "السيارات", icon: Car, C: VehiclesSection },
@@ -41,6 +42,7 @@ export default function AdminDashboard() {
             </div>
           )}
           <StatsBar />
+          <DemoDataBar />
           <div key={tab} className="fade-up"><Active /></div>
         </main>
       </div>

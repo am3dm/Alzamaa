@@ -785,6 +785,74 @@ async def driver_trip_status(tid: str, body: TripStatusIn, user=Depends(role("dr
 # ---------- Stats ----------
 
 
+# ---------- Demo data ----------
+
+DEMO_DRIVERS = [("سائق تجريبي - حسن", "07700000001"), ("سائق تجريبي - كريم", "07700000002")]
+DEMO_STUDENTS = [
+    ("طالب تجريبي - أحمد", "07800000001", "male", "جامعة بغداد", (34.0190, 44.1420), (33.2717, 44.3768)),
+    ("طالب تجريبي - علي", "07800000002", "male", "الجامعة التكنولوجية", (34.0120, 44.1500), (33.3127, 44.4460)),
+    ("طالبة تجريبية - زينب", "07800000003", "female", "جامعة النهرين", (34.0215, 44.1380), (33.2785, 44.3725)),
+    ("طالبة تجريبية - مريم", "07800000004", "female", "جامعة بغداد", (34.0100, 44.1460), (33.2717, 44.3768)),
+    ("طالبة تجريبية - سارة", "07800000005", "female", "جامعة الكرخ", (34.0170, 44.1530), (33.3500, 44.3200)),
+]
+
+
+def loc(p):
+    return {"lat": p[0], "lng": p[1]}
+
+
+@api.post("/demo/seed")
+async def seed_demo(_=Depends(admin_only)):
+    if await db.users.find_one({"demo": True}):
+        raise HTTPException(400, "البيانات التجريبية موجودة مسبقاً")
+    phones = [p for _, p in DEMO_DRIVERS] + [s[1] for s in DEMO_STUDENTS]
+    if await db.users.find_one({"phone": {"$in": phones}}):
+        raise HTTPException(400, "أحد أرقام البيانات التجريبية مستخدم لحساب حقيقي")
+    tomorrow = (datetime.now(timezone(timedelta(hours=3))) + timedelta(days=1)).date().isoformat()
+    vids = []
+    for i, (name, phone) in enumerate(DEMO_DRIVERS, 1):
+        d = await db.users.insert_one({"name": name, "phone": phone, "password_hash": hash_pw("driver123"),
+                                       "role": "driver", "status": "active", "demo": True, "created_at": now_iso()})
+        v = await db.vehicles.insert_one({"plate": f"بغ 10000{i} (تجريبي)", "model": "ستاركس", "driver_id": str(d.inserted_id),
+                                          "driver_name": name, "driver_phone": phone, "demo": True, "created_at": now_iso()})
+        vids.append(str(v.inserted_id))
+    seats = [(1, 1), (2, 1), (3, 1), (3, 2), None]
+    types = ["go", "round", "round", "go", "go"]
+    times = ["06:30", "06:30", "07:00", "07:00", "07:30"]
+    for (name, phone, gender, uni, home, uni_pt), seat, tt, tm in zip(DEMO_STUDENTS, seats, types, times):
+        await ensure_university(uni)
+        s = await db.users.insert_one({
+            "name": name, "phone": phone, "password_hash": hash_pw("student123"), "role": "student", "status": "active",
+            "gender": gender, "university": uni, "home_location": loc(home), "home_address": "بلد - حي تجريبي",
+            "uni_location": loc(uni_pt), "uni_address": uni, "demo": True, "created_at": now_iso()})
+        data = {"student_name": name, "phone": phone, "gender": gender, "university": uni, "date": tomorrow,
+                "pickup_time": tm, "trip_type": tt, "return_pickup_time": "14:00" if tt == "round" else None,
+                "location": loc(home), "address": "بلد - حي تجريبي", "dropoff_location": loc(uni_pt),
+                "dropoff_address": uni, "notes": "حجز تجريبي"}
+        doc = {**booking_doc(data, "admin", str(s.inserted_id)), "demo": True}
+        if seat:
+            doc.update({"vehicle_id": vids[0], "seat": {"row": seat[0], "seat": seat[1]}, "status": "confirmed"})
+        await db.bookings.insert_one(doc)
+    for direction, start in (("go", "06:15"), ("return", "14:00")):
+        await db.trips.insert_one({"vehicle_id": vids[0], "date": tomorrow, "direction": direction, "start_time": start,
+                                   "status": "pending", "demo": True, "created_at": now_iso()})
+    return {"ok": True, "date": tomorrow}
+
+
+@api.delete("/demo")
+async def delete_demo(_=Depends(admin_only)):
+    counts = {}
+    for name in ("bookings", "trips", "vehicles", "users"):
+        counts[name] = (await db[name].delete_many({"demo": True})).deleted_count
+    return counts
+
+
+@api.get("/demo")
+async def demo_status(_=Depends(admin_only)):
+    return {"exists": bool(await db.users.find_one({"demo": True}))}
+
+
+
 @api.get("/stats")
 async def stats(_=Depends(admin_only)):
     vehicles = await db.vehicles.count_documents({})
