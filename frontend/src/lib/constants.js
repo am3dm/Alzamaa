@@ -14,7 +14,7 @@ export const TRIP_STATUS = {
 export const STUDENT_STATUS = {
   pending: { label: "بانتظار الموافقة", cls: "bg-amber-100 text-amber-700" },
   active: { label: "مفعل", cls: "bg-emerald-100 text-emerald-700" },
-  rejected: { label: "مرفوض", cls: "bg-red-100 text-red-600" },
+  rejected: { label: "موقوف / مرفوض", cls: "bg-red-100 text-red-600" },
 };
 
 export const TRIP_TYPES = {

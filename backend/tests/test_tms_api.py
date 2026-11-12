@@ -26,7 +26,7 @@ def admin():
 
 @pytest.fixture(scope="module")
 def ctx(admin):
-    c = {"vehicles": [], "bookings": [], "trips": [], "drivers": []}
+    c = {"vehicles": [], "bookings": [], "trips": [], "users": []}
     yield c
     for t in c["trips"]:
         admin.delete(f"{API}/trips/{t}")
@@ -34,6 +34,15 @@ def ctx(admin):
         admin.delete(f"{API}/bookings/{b}")
     for v in c["vehicles"]:
         admin.delete(f"{API}/vehicles/{v}")
+    for u in c["users"]:
+        admin.delete(f"{API}/accounts/{u}")
+
+
+def mk_driver(admin, ctx, name, phone, pw="drv123"):
+    r = admin.post(f"{API}/accounts", json={"role": "driver", "name": name, "phone": phone, "password": pw})
+    assert r.status_code == 200, r.text
+    ctx["users"].append(r.json()["id"])
+    return r.json()["id"]
 
 
 def mk_booking(admin, ctx, name, gender, trip_type="go", phone=None, date=DATE):
@@ -65,34 +74,35 @@ def test_unauth_401():
 # --- Vehicles
 def test_vehicle_crud_and_driver(admin, ctx):
     dphone = f"079{NUM}"
-    r = admin.post(f"{API}/vehicles", json={"plate": f"TEST_P{SUF}", "driver_name": "TEST_Driver",
-                                           "driver_phone": dphone, "driver_password": "drv123", "model": "Starex"})
+    did = mk_driver(admin, ctx, "TEST_Driver", dphone)
+    ctx["did"] = did
+    r = admin.post(f"{API}/vehicles", json={"plate": f"TEST_P{SUF}", "driver_id": did, "model": "Starex"})
     assert r.status_code == 200, r.text
     vid = r.json()["id"]
     ctx["vehicles"].append(vid)
     ctx["vid"], ctx["dphone"] = vid, dphone
     # duplicate plate
-    assert admin.post(f"{API}/vehicles", json={"plate": f"TEST_P{SUF}", "driver_name": "x", "driver_phone": dphone}).status_code == 400
+    assert admin.post(f"{API}/vehicles", json={"plate": f"TEST_P{SUF}", "driver_id": did}).status_code == 400
+    # invalid driver id
+    assert admin.post(f"{API}/vehicles", json={"plate": f"TEST_Z{SUF}", "driver_id": "000000000000000000000000"}).status_code == 400
     # edit
-    r = admin.put(f"{API}/vehicles/{vid}", json={"plate": f"TEST_P{SUF}", "driver_name": "TEST_Driver2",
-                                                 "driver_phone": dphone, "model": "H1"})
+    r = admin.put(f"{API}/vehicles/{vid}", json={"plate": f"TEST_P{SUF}", "driver_id": did, "model": "H1"})
     assert r.status_code == 200 and r.json()["model"] == "H1"
     lst = admin.get(f"{API}/vehicles").json()
     v = next(x for x in lst if x["id"] == vid)
-    assert v["capacity"] == 8 and v["driver_name"] == "TEST_Driver2"
+    assert v["capacity"] == 8 and v["driver_name"] == "TEST_Driver" and v["driver_phone"] == dphone and v["driver_id"] == did
     # driver login still works with old password
     assert login(dphone, "drv123").status_code == 200
 
 
 def test_vehicle_edit_to_duplicate_plate(admin, ctx):
-    r = admin.post(f"{API}/vehicles", json={"plate": f"TEST_Q{SUF}", "driver_name": "TEST_D2",
-                                           "driver_phone": f"078{NUM}", "driver_password": "drv123"})
+    d2 = mk_driver(admin, ctx, "TEST_D2", f"078{NUM}")
+    r = admin.post(f"{API}/vehicles", json={"plate": f"TEST_Q{SUF}", "driver_id": d2})
     assert r.status_code == 200
     v2 = r.json()["id"]
     ctx["vehicles"].append(v2)
     ctx["vid2"] = v2
-    r = admin.put(f"{API}/vehicles/{v2}", json={"plate": f"TEST_P{SUF}", "driver_name": "TEST_D2",
-                                                "driver_phone": f"078{NUM}"})
+    r = admin.put(f"{API}/vehicles/{v2}", json={"plate": f"TEST_P{SUF}", "driver_id": d2})
     assert r.status_code == 400, f"expected 400 got {r.status_code}"
 
 
@@ -178,13 +188,14 @@ def test_driver_portal(admin, ctx):
 def test_student_flow(admin, ctx):
     phone = f"077{NUM}"
     r = requests.post(f"{API}/auth/register", json={"name": "TEST_Student", "phone": phone, "password": "stu123",
-                                                     "gender": "female", "university": f"TEST_Uni{SUF}"})
+                                                     "gender": "female", "university": "جامعة بغداد"})
     assert r.status_code == 200
     assert requests.post(f"{API}/auth/register", json={"name": "TEST_Student", "phone": phone, "password": "stu123",
                                                         "gender": "female", "university": "x"}).status_code == 400
     assert login(phone, "stu123").status_code == 403
     st = next(s for s in admin.get(f"{API}/students", params={"status": "pending"}).json() if s["phone"] == phone)
     ctx["student_id"] = st["id"]
+    ctx["users"].append(st["id"])
     assert admin.patch(f"{API}/students/{st['id']}/status", json={"status": "active"}).status_code == 200
     r = login(phone, "stu123")
     assert r.status_code == 200

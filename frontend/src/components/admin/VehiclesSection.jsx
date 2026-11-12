@@ -17,7 +17,7 @@ export const useVehicles = () => useQuery({ queryKey: ["vehicles"], queryFn: () 
 const VehicleForm = ({ initial, onDone }) => {
   const [f, setF] = useState(initial || EMPTY);
   const qc = useQueryClient();
-  const { data: drivers = [] } = useAccounts({ role: "driver" });
+  const { data: drivers = [] } = useAccounts({ role: "driver", status: "active" });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const submit = async (e) => {
     e.preventDefault();

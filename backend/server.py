@@ -253,9 +253,9 @@ async def add_university(body: UniversityIn, _=Depends(admin_only)):
 
 
 async def driver_fields(driver_id: str):
-    d = await db.users.find_one({"_id": oid(driver_id), "role": "driver"})
+    d = await db.users.find_one({"_id": oid(driver_id), "role": "driver", "status": "active"})
     if not d:
-        raise HTTPException(400, "اختر سائقاً من الحسابات (أنشئه من إدارة الحسابات)")
+        raise HTTPException(400, "اختر سائقاً مفعلاً من الحسابات (أنشئه من إدارة الحسابات)")
     return {"driver_id": driver_id, "driver_name": d["name"], "driver_phone": d["phone"]}
 
 
@@ -447,8 +447,8 @@ def account_fields(body: AccountIn):
             raise HTTPException(400, "حدد جنس الطالب وجامعته")
         data.update({"gender": body.gender, "university": body.university.strip()})
     if body.password:
-        if len(body.password) < 4:
-            raise HTTPException(400, "كلمة المرور قصيرة (4 أحرف على الأقل)")
+        if len(body.password) < 6:
+            raise HTTPException(400, "كلمة المرور قصيرة (6 أحرف على الأقل)")
         data["password_hash"] = hash_pw(body.password)
     return data
 

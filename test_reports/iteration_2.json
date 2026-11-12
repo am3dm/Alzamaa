@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 2: Admin 'إدارة الحسابات' feature + regression. Backend: 26/26 pytest pass (updated test_tms_api.py to driver_id vehicle payload; new test_accounts_api.py covering create student/driver + login, gender/university required, password required on create, duplicate phone 400 (incl. admin phone), edit keeps old password when empty / new password works / old phone stops working, role change 400, edit to existing phone 400, rejected status blocks login (403) and invalidates existing token (401), reactivate, /register request -> pending -> approve/reject, vehicle linked to driver_id, driver name/phone edit syncs to vehicle and driver still sees trips with new phone, delete linked driver 400, delete account 200 then 404, admin not listed/deletable via /accounts, student/driver 403 and anon 401 on /accounts). Lockout: 5x401 then 429 now works (fixed). bcrypt $2b$. Frontend (Playwright): nav-accounts present (Students tab removed), create student -> appears in الطلاب, duplicate phone toast, create driver from السائقون (no gender/university fields) -> 'غير مرتبط بسيارة', vehicle form driver select lists driver accounts, add + edit vehicle (select prefilled), driver row then shows plate, delete linked driver shows error toast, edit student name with empty password keeps login, suspend via status select -> موقوفة tab -> login blocked toast -> تفعيل reactivates -> login to /student works, driver logs in to /driver and sees trip of vehicle, /register request shows in طلبات جديدة -> تفعيل moves to الطلاب, delete account via UI. All admin tabs load with no page errors; mobile layout OK. All passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST/PUT /api/vehicles", "issue": "driver_fields() accepts any driver regardless of status - a rejected/pending driver can be assigned to a vehicle."},
+      {"endpoint": "DELETE /api/accounts/{id} (student)", "issue": "Deleting a student leaves their bookings with dangling student_id (bookings still dispatched/visible). Consider cancelling or blocking."},
+      {"endpoint": "/api/accounts password rules", "issue": "Admin-created accounts allow 4-char passwords while /auth/register requires 6 - inconsistent policy."},
+      {"endpoint": "Vehicle<->driver linkage", "issue": "Vehicles store driver_id but linkage (driver_vehicle_ids, accounts.vehicles, delete guard, sync) is keyed on driver_phone. Works because update syncs phone, but driver_id should be the source of truth to avoid drift (e.g. legacy vehicles without driver_id)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Accounts - موقوفة tab", "issues": ["Suspended accounts show badge 'مرفوض' (rejected) - wording suits rejected requests, not admin-suspended accounts", "No quick 'إيقاف' button on active rows; suspension only possible via edit dialog status select"]},
+      {"screen": "Accounts - status select", "issues": ["Driver accounts can be set to 'pending' but pending drivers do not appear in طلبات جديدة (tab is student-only) - only in السائقون"]},
+      {"screen": "Register page", "issues": ["University picker still has '+ جديد' toggle although backend no longer adds universities on register (free text saved on user only) - fine but may confuse"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_tms_api.py", "/app/backend/tests/test_accounts_api.py", "/app/backend/tests/cleanup_ui_data.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional: in driver_fields require driver status == 'active'",
+    "Optional: use driver_id (not driver_phone) for vehicle linkage lookups",
+    "Optional: handle bookings when deleting a student account; unify min password length",
+    "Optional UX: add 'إيقاف' action on active rows and label suspended status as 'موقوف'"
+  ],
+  "critical_code_review_comments": [
+    "Accounts endpoints properly admin-only, exclude _id/password_hash, validate via Pydantic, return 400/404 with Arabic messages.",
+    "current_user rejects non-active users, so suspension takes effect immediately on existing tokens - good.",
+    "AccountRow.setStatus PUTs the whole account object (extra fields ignored by Pydantic) - works but sending only needed fields is cleaner; a PATCH status endpoint would avoid re-validating gender/university for legacy records missing them (would 400).",
+    "Legacy /api/students endpoints still present but unused by new UI."
+  ],
+  "updated_files": ["/app/backend/tests/test_tms_api.py", "/app/backend/tests/test_accounts_api.py", "/app/backend/tests/cleanup_ui_data.py"],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "100%"},
+  "test_credentials": "Admin 1234567890/admin123 works.",
+  "seed_data_creation": "All TEST_ users, vehicles, bookings, trips created were deleted by id; DB verified: 0 TEST_ users/vehicles/bookings/universities remaining.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=<frontend/.env> python -m pytest tests/test_tms_api.py tests/test_accounts_api.py (xdist via pytest.ini; self-cleaning). Drivers must be created via POST /api/accounts then vehicles via driver_id. Shadcn selects: click [data-testid=X] then [data-testid=X-option-<value>] with force=True; vehicle driver select options found via role=option has_text phone. window.confirm used for deletes."
+}

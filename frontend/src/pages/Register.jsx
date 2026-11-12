@@ -61,7 +61,7 @@ export default function Register() {
             <SimpleSelect value={f.gender} onChange={(v) => set({ gender: v })} options={Object.entries(GENDERS).map(([value, label]) => ({ value, label }))} testId="register-gender-select" />
           </Field>
           <Field label="الجامعة">
-            <UniversityPicker value={f.university} onChange={(v) => set({ university: v })} />
+            <UniversityPicker value={f.university} onChange={(v) => set({ university: v })} allowNew={false} />
           </Field>
           <Field label="ملاحظات (اختياري)">
             <Textarea value={f.notes} onChange={(e) => set({ notes: e.target.value })} data-testid="register-notes-input" />

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserCog, Check, X, Pencil, Trash2, Plus, Search, Car } from "lucide-react";
+import { UserCog, Check, X, Pencil, Trash2, Plus, Search, Car, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,7 +50,7 @@ const AccountForm = ({ initial, onDone }) => {
       <Field label="الاسم الكامل"><Input className="h-11" value={f.name} onChange={(e) => set({ name: e.target.value })} required data-testid="account-name-input" /></Field>
       <Field label="رقم الهاتف (للدخول)"><Input dir="ltr" className="h-11" value={f.phone} onChange={(e) => set({ phone: e.target.value })} required data-testid="account-phone-input" /></Field>
       <Field label={editing ? "كلمة مرور جديدة (اتركها فارغة للإبقاء)" : "كلمة المرور"} className="sm:col-span-2">
-        <Input type="text" dir="ltr" className="h-11" value={f.password} onChange={(e) => set({ password: e.target.value })} required={!editing} minLength={4} data-testid="account-password-input" />
+        <Input type="text" dir="ltr" className="h-11" value={f.password} onChange={(e) => set({ password: e.target.value })} required={!editing} minLength={6} data-testid="account-password-input" />
       </Field>
       {f.role === "student" && (
         <>
@@ -82,6 +82,7 @@ const AccountRow = ({ a, onEdit }) => {
         <StatusBadge map={STUDENT_STATUS} status={a.status} testId={`account-status-${a.id}`} />
         {a.status !== "active" && <Button size="sm" className="gap-1" onClick={() => setStatus("active")} data-testid={`account-approve-${a.id}`}><Check className="h-4 w-4" /> تفعيل</Button>}
         {a.status === "pending" && <Button size="sm" variant="outline" className="gap-1 text-red-600" onClick={() => setStatus("rejected")} data-testid={`account-reject-${a.id}`}><X className="h-4 w-4" /> رفض</Button>}
+        {a.status === "active" && <Button size="sm" variant="outline" className="gap-1" onClick={() => setStatus("rejected")} data-testid={`account-suspend-${a.id}`}><Ban className="h-4 w-4" /> إيقاف</Button>}
         <Button size="icon" variant="ghost" onClick={onEdit} data-testid={`account-edit-${a.id}`}><Pencil className="h-4 w-4" /></Button>
         <Button size="icon" variant="ghost" className="text-red-600" onClick={() => window.confirm(`حذف حساب ${a.name}؟`) && act(() => api.delete(`/accounts/${a.id}`), "تم حذف الحساب")} data-testid={`account-delete-${a.id}`}><Trash2 className="h-4 w-4" /></Button>
       </div>
@@ -102,7 +103,9 @@ export const AccountsSection = () => {
   const [dialog, setDialog] = useState(null);
   const { data = [], isLoading } = useAccounts(TABS[tab]);
   const { data: requests = [] } = useAccounts(TABS.requests);
-  const list = data.filter((a) => !q || a.name.includes(q) || a.phone.includes(q));
+  const { data: allDrivers = [] } = useAccounts(TABS.drivers);
+  const pool = tab === "requests" ? [...data, ...allDrivers.filter((d) => d.status === "pending")] : data;
+  const list = pool.filter((a) => !q || a.name.includes(q) || a.phone.includes(q));
   return (
     <SectionCard title="إدارة الحسابات" icon={UserCog} testId="accounts-card"
       action={<Button onClick={() => setDialog({ ...EMPTY, role: tab === "drivers" ? "driver" : "student" })} className="gap-2 font-bold" data-testid="new-account-button"><Plus className="h-4 w-4" /> إنشاء حساب</Button>}>
